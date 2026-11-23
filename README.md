@@ -1,1 +1,1 @@
-# maison-gabriel
+# maison-gabriel-bougie
