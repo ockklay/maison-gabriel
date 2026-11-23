@@ -177,7 +177,7 @@ th.amt{text-align:right}
 .seg{display:inline-flex;background:#eedcd9;border-radius:9px;padding:3px}
 .seg button{border:0;background:none;padding:5px 12px;border-radius:7px;cursor:pointer;color:var(--ink2);font-size:13px}
 .seg button.on{background:var(--card);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(80,40,45,.1)}
-input[type=search],input[type=text],input[type=number],input[type=date],select,textarea{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;outline:none;width:100%}
+input[type=search],input[type=text],input[type=password],input[type=number],input[type=date],select,textarea{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;outline:none;width:100%}
 input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .toolbar input[type=search]{width:230px}
 .totals{display:flex;gap:22px;justify-content:flex-end;padding:14px 10px 0;font-size:13px;color:var(--ink2)}
@@ -247,6 +247,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 
 /* Settings */
 .set{display:grid;gap:14px;max-width:680px}
+.set .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .set .card label{font-weight:600;display:block;margin-bottom:6px}
 .set p{color:var(--ink2);margin:4px 0 10px;font-size:13px;line-height:1.5}
 .radio{display:flex;gap:10px;align-items:flex-start;padding:9px 0;cursor:pointer}
@@ -272,6 +273,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
   <button class="nav" data-view="ops"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span>Opérations</span></button>
   <div class="nav-sec">Récaps annuels</div>
   <div id="yearNav"></div>
+  <button class="nav" data-view="account"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="5.5" r="2.8"/><path d="M2.8 14c.6-2.8 2.7-4.3 5.2-4.3s4.6 1.5 5.2 4.3"/></svg><span>Mon compte</span></button>
   <button class="nav" data-view="set"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3"/></svg><span>Réglages</span></button>
   <div class="side-foot" id="sideFoot"></div>
 </aside>
@@ -361,6 +363,33 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
       <div class="card"><h2>Toutes les opérations</h2><div class="sub" id="mrOpsSub"></div><div id="mrOps"></div></div>
     </section>
 
+    <!-- ACCOUNT -->
+    <section id="v-account" class="hidden">
+      <header class="top"><h1>Mon compte</h1></header>
+      <div class="set">
+        <div class="card" id="syncCard">
+          <label>Synchronisation entre vos appareils</label>
+          <p>Vos chiffres sont gardés en ligne dans <b>votre</b> base Supabase, protégés par votre e-mail et votre mot de passe, et arrivent tout seuls sur vos autres appareils. Vos factures, elles, ne sont jamais envoyées.</p>
+          <div id="syncCfg" class="two" style="margin-bottom:10px">
+            <div><label for="syncUrl" style="font-weight:500;font-size:12.5px;color:var(--ink2)">URL du projet Supabase</label><input type="text" id="syncUrl" placeholder="https://xxxx.supabase.co" autocomplete="off" spellcheck="false"></div>
+            <div><label for="syncKey" style="font-weight:500;font-size:12.5px;color:var(--ink2)">Clé publishable</label><input type="text" id="syncKey" placeholder="sb_publishable_…" autocomplete="off" spellcheck="false"></div>
+          </div>
+          <div id="syncLogin">
+            <div class="two">
+              <div><label for="syncEmail" style="font-weight:500;font-size:12.5px;color:var(--ink2)">E-mail</label><input type="text" id="syncEmail" autocomplete="username" inputmode="email"></div>
+              <div><label for="syncPass" style="font-weight:500;font-size:12.5px;color:var(--ink2)">Mot de passe (8 caractères minimum)</label><input type="password" id="syncPass" autocomplete="current-password"></div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap"><button class="btn primary" data-act="syncLogin">Se connecter</button><button class="btn" data-act="syncSignup">Créer le compte</button></div>
+          </div>
+          <div id="syncIn" class="hidden">
+            <p style="margin:0">Connectée : <b id="syncWho"></b></p>
+            <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap"><button class="btn" data-act="syncNow">Synchroniser maintenant</button><button class="btn ghost" data-act="syncLogout">Se déconnecter</button></div>
+          </div>
+          <p class="syncst" id="syncStatus"></p>
+        </div>
+      </div>
+    </section>
+
     <!-- SETTINGS -->
     <section id="v-set" class="hidden">
       <header class="top"><h1>Réglages</h1></header>
@@ -386,26 +415,6 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
           <label>Handicap de trésorerie par année</label>
           <p>Le montant à rattraper au 1er janvier de chaque année. Il sert de point de départ à la colonne « Trésorerie » des récaps annuels. Laissez vide ou 0 pour repartir de zéro.</p>
           <div id="hcList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px"></div>
-        </div>
-        <div class="card" id="syncCard">
-          <label>Synchronisation entre vos appareils</label>
-          <p>Vos chiffres sont gardés en ligne dans <b>votre</b> base Supabase, protégés par votre e-mail et votre mot de passe, et arrivent tout seuls sur vos autres appareils. Vos factures, elles, ne sont jamais envoyées.</p>
-          <div id="syncCfg" class="two" style="margin-bottom:10px">
-            <div><label for="syncUrl" style="font-weight:500;font-size:12.5px;color:var(--ink2)">URL du projet Supabase</label><input type="text" id="syncUrl" placeholder="https://xxxx.supabase.co" autocomplete="off" spellcheck="false"></div>
-            <div><label for="syncKey" style="font-weight:500;font-size:12.5px;color:var(--ink2)">Clé publishable</label><input type="text" id="syncKey" placeholder="sb_publishable_…" autocomplete="off" spellcheck="false"></div>
-          </div>
-          <div id="syncLogin">
-            <div class="two">
-              <div><label for="syncEmail" style="font-weight:500;font-size:12.5px;color:var(--ink2)">E-mail</label><input type="text" id="syncEmail" autocomplete="username" inputmode="email"></div>
-              <div><label for="syncPass" style="font-weight:500;font-size:12.5px;color:var(--ink2)">Mot de passe (8 caractères minimum)</label><input type="password" id="syncPass" autocomplete="current-password"></div>
-            </div>
-            <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap"><button class="btn primary" data-act="syncLogin">Se connecter</button><button class="btn" data-act="syncSignup">Créer le compte</button></div>
-          </div>
-          <div id="syncIn" class="hidden">
-            <p style="margin:0">Connectée : <b id="syncWho"></b></p>
-            <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap"><button class="btn" data-act="syncNow">Synchroniser maintenant</button><button class="btn ghost" data-act="syncLogout">Se déconnecter</button></div>
-          </div>
-          <p class="syncst" id="syncStatus"></p>
         </div>
         <div class="card">
           <label>Copie de sécurité de vos chiffres</label>
@@ -610,12 +619,13 @@ function render(){
   $$(".monthSub").forEach(el=>el.textContent = `Dépenses ${/^[aeiouy]/.test(MONTHS[state.m])?"d'":"de "}${MONTHS[state.m]} ${state.y}, par catégorie`);
   renderYearNav();
   $$(".nav").forEach(b=>b.classList.toggle("on",b.dataset.view===state.view && (state.view!=="year" || +b.dataset.year===state.year) && (state.view!=="month" || (+b.dataset.year===state.y && +b.dataset.month===state.m))));
-  ["dash","ops","year","month","set"].forEach(v=>$("#v-"+v).classList.toggle("hidden",v!==state.view));
+  ["dash","ops","year","month","account","set"].forEach(v=>$("#v-"+v).classList.toggle("hidden",v!==state.view));
   if(state.view==="month") renderMonthRecap();
   if(state.view==="dash") renderDash();
   if(state.view==="ops") renderOps();
   if(state.view==="year") renderYear();
   if(state.view==="set") renderSettings();
+  if(state.view==="account") renderSyncCard();
   renderSideFoot(); renderBackupWarn();
 }
 
@@ -783,7 +793,7 @@ function renderSettings(){
 }
 function renderSideFoot(){
   const n=state.entries.length;
-  const cloud = Sync.on() ? `<br><span class="cloud ${Sync.err?"err":""}">☁︎ ${esc(Sync.status||"Synchronisation activée")}</span>` : `<br>Données stockées sur cet appareil.`;
+  const cloud = Sync.on() ? `<br><span class="cloud ${Sync.err?"err":""}">☁︎ ${esc(Sync.status||"Synchronisation activée")}</span>` : `<br><a href="#" data-goto="account" style="color:inherit">Se connecter pour synchroniser</a>`;
   $("#sideFoot").innerHTML = `<b>${n} opération${n>1?"s":""}</b> enregistrée${n>1?"s":""}${cloud}`;
 }
 function renderBackupWarn(){
@@ -1438,7 +1448,7 @@ var Sync = {
 function renderSyncCard(){
   if(!$("#syncCard")) return;
   const c=Sync.cfg(), l=Sync.load(), on=Sync.on();
-  $("#syncCfg").classList.toggle("hidden",c.fromFile);
+  $("#syncCfg").classList.toggle("hidden",c.fromFile||on);
   if(!c.fromFile && document.activeElement!==$("#syncUrl")) $("#syncUrl").value=l.url||"";
   if(!c.fromFile && document.activeElement!==$("#syncKey")) $("#syncKey").value=l.key||"";
   $("#syncLogin").classList.toggle("hidden",on); $("#syncIn").classList.toggle("hidden",!on);
