@@ -1128,6 +1128,12 @@ async function saveEtsy(){
 }
 /* Une facture de vente Etsy glissée en retard dans un mois Etsy déjà enregistré :
    seul ce mois est réajusté pour coller au total du relevé Etsy (rien n'est compté deux fois). */
+function syncEtsyTotal(e,newAmount){
+  if(!e||e.src!=="etsy-releve"||e.type!=="vente"||!e.period) return;
+  const t=(state.settings.etsyTotals||{})[e.period]; if(!t) return;
+  const y=+e.period.slice(0,4), m=+e.period.slice(5,7)-1; const ind=indivEtsy(y,m);
+  if(e.refund) t.refunds=Math.round((ind.refunds+newAmount)*100)/100; else t.sales=Math.round((ind.sales+newAmount)*100)/100;
+}
 async function reconcileEtsy(date){
   if(!date) return; const y=+date.slice(0,4), m=+date.slice(5,7)-1, period=`${y}-${pad(m+1)}`;
   const t=(state.settings.etsyTotals||{})[period]; if(!t) return;
@@ -1137,7 +1143,8 @@ async function reconcileEtsy(date){
     const adj=state.entries.find(e=>e.src==="etsy-releve"&&e.period===period&&e.type==="vente"&&!!e.refund===refund);
     if(target>0){
       const e=adj?{...adj}:{id:uid(),created:Date.now(),type:"vente",cat:"Etsy",party:"Etsy",tva:t.tva??state.settings.tvaDefault,date:`${period}-${pad(last)}`,src:"etsy-releve",period,fileId:null,fileName:null,vatPaid:0,note:"",refund:refund||undefined};
-      e.amount=target; e.label=refund?`Remboursements Etsy sans facture – ${label}`:`Ventes Etsy sans facture – ${label}`;
+      const hasInd = refund ? ind.refundsN>0 : ind.salesN>0;
+      e.amount=target; e.label = refund ? (hasInd?`Remboursements Etsy sans facture – ${label}`:`Remboursements Etsy ${label}`) : (hasInd?`Ventes Etsy sans facture – ${label}`:`Ventes Etsy ${label}${t.count?` (${t.count} vente${t.count>1?"s":""})`:""}`);
       await store.put("entries",e); const i=state.entries.findIndex(x=>x.id===e.id); if(i>=0) state.entries[i]=e; else state.entries.push(e);
     } else if(adj){ await store.del("entries",adj.id); state.entries=state.entries.filter(x=>x.id!==adj.id); }
     if(target<0) toast(`Attention : vos factures Etsy ${deM(m)} dépassent le total du relevé Etsy (${fmt(-target)} de trop). Vérifiez qu'aucune n'a été glissée deux fois.`);
@@ -1181,6 +1188,7 @@ async function saveEntry(){
     await store.put("entries",e);
   }catch(err){ console.error(err); $("#mHint").textContent="Erreur d'enregistrement : "+err.message; return; }
   const i=state.entries.findIndex(x=>x.id===e.id); if(i>=0) state.entries[i]=e; else state.entries.push(e);
+  if(old && old.src==="etsy-releve") syncEtsyTotal(e,e.amount);
   await reconcileEtsy(e.date); if(old && old.date!==e.date) await reconcileEtsy(old.date);
   await touch();
   // jump to the entry's month so the person sees it
@@ -1218,6 +1226,7 @@ async function deleteEntry(){
   if(e.fileId) await store.del("files",e.fileId);
   for(const x of linked) await store.del("entries",x.id);
   await store.del("entries",e.id); state.entries=state.entries.filter(x=>x.id!==e.id && x.linkedTo!==e.id);
+  syncEtsyTotal(e,0);
   await reconcileEtsy(e.date); for(const x of linked) await reconcileEtsy(x.date);
   await touch(); toast("Opération supprimée"); closeEntry(); render();
 }
