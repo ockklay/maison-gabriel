@@ -726,7 +726,7 @@ function tableHTML(list,withTotals){
     const d = e.date.split("-");
     h += `<tr class="click" data-id="${e.id}"><td class="num">${d[2]}/${d[1]}/${d[0]}</td>
       <td><span class="tag ${e.refund?"refund":e.type}">${typeLabel(e)}</span></td>
-      <td>${dups.has(e.id)?'<span class="duptag">⚠ Doublon</span> ':''}${esc(e.label)||'<span class="muted">—</span>'}${e.type==="vente"&&e.country==="UE"?` <span class="refunded" style="background:#eef0fb;color:#3b4a8a">${esc(e.countryName&&!/^Autre/.test(e.countryName)?e.countryName:"UE")}</span>`:""}${e.type==="vente"&&e.country==="HORS_UE"?` <span class="refunded" style="background:#eef6f0;color:#2f6b45">${esc(e.countryName&&!/^Autre/.test(e.countryName)?e.countryName:"Hors UE")} · export</span>`:""}${e.party?`<div class="muted" style="font-size:12px">${esc(e.party)}</div>`:""}${(()=>{ const r=refundedOf(e.id); return r?`<span class="refunded">↩ ${r+0.005>=e.amount?"remboursé":"remboursé en partie"} · ${fmt(r)}</span>`:""; })()}</td>
+      <td>${dups.has(e.id)?'<span class="duptag">⚠ Doublon</span> ':''}${esc(e.label)||'<span class="muted">—</span>'}${e.type==="vente"&&e.src!=="etsy-releve"?countryTag(e):""}${e.party?`<div class="muted" style="font-size:12px">${esc(e.party)}</div>`:""}${(()=>{ const r=refundedOf(e.id); return r?`<span class="refunded">↩ ${r+0.005>=e.amount?"remboursé":"remboursé en partie"} · ${fmt(r)}</span>`:""; })()}</td>
       <td class="muted" style="font-size:13px">${esc(e.cat)}</td>
       <td>${e.fileName?`<span class="file-ic" title="${esc(e.fileName)}">📎 ${esc(trunc(e.fileName,18))}</span>`:`<span class="nofile">aucune</span>`}</td>
       <td class="amt num" style="color:${isIn(e)?"var(--sale-ink)":"var(--exp-ink)"}">${isIn(e)?"+":"−"} ${fmt(e.amount)}</td></tr>`;
@@ -755,6 +755,9 @@ async function deleteDups(ids){
   for(const d of dates) await reconcileEtsy(d);
   await touch(); toast(`${ids.length} doublon${ids.length>1?"s":""} supprimé${ids.length>1?"s":""}`); render();
 }
+function countryTag(e){ const c=e.country||"FR"; const n=e.countryName&&!/^Autre/.test(e.countryName)?e.countryName:(c==="UE"?"UE":c==="HORS_UE"?"Hors UE":"France");
+  const st = c==="FR" ? "background:#f6ecee;color:#8f7478" : "background:var(--accent);color:var(--ink);font-weight:600";
+  return `<div style="margin:3px 0 1px"><span class="refunded" style="${st};margin:0" ${c==="HORS_UE"?'title="Hors UE : vente sans TVA française (exportation)"':""}>${esc(n)}${c==="HORS_UE"?" · export":""}</span></div>`; }
 const trunc=(s,n)=>!s?"":s.length>n?s.slice(0,n-1)+"…":s;
 
 function drawChart(){
@@ -1268,9 +1271,10 @@ function readPieces(pieces){
     const rm=flat.match(/rembours[ée]\s*-\s*(\d[\d .,  ]*?[.,]\d{2})/i); const refunded=rm?num(rm[1]):0;
     if(/totalement rembours/i.test(flat) || (info.amount && refunded+0.005>=info.amount)) info.cancelled=true;
     else if(refunded>0) info.refunded=refunded;
-    const pd=flat.match(/pays de destination\s+([^,]{2,60}),\s*([A-Za-zÀ-ÿ' -]{3,40}?)(?=\s+\d|\s+[A-Z][a-z]+\s+[A-Z]|$)/);
-    info.country=detectCountry(pd?pd[2]:flat);
-    const pi=pieces.findIndex((x,i)=>i>0&&/^\s*pays de destination\s*$/i.test(x)); if(pi>=0) info.customer=(pieces[pi+1]||"").trim();
+    const pi=pieces.findIndex(x=>/^\s*pays de destination\s*$/i.test(x));
+    const pl=pieces.find(x=>/^\s*pays de destination\s+\S/i.test(x));
+    info.country = (pl && detectCountry(pl.split(",").pop())) || (pi>=0 && detectCountry(pieces.slice(pi+1,pi+7).join(" "))) || {name:"France",zone:"FR"};
+    if(pi>=0) info.customer=(pieces[pi+1]||"").trim();
   }
   // Page « Bénéfices » d'une commande Etsy annulée (imprimée en PDF)
   if(!info.etsyOrder && /annul[ée]e/i.test(flat) && /l.acheteur a pay[ée]/i.test(flat)){
@@ -1655,6 +1659,8 @@ async function saveEntry(){
   if(!old && e.type==="vente" && !e.refund && $("#fCancel").checked){
     const r={id:uid(),created:Date.now()+1,type:"vente",refund:true,linkedTo:e.id,country:e.country,countryName:e.countryName,amount:e.amount,date:e.date,cat:e.cat,party:e.party,tva:e.tva,autoliq:false,vatPaid:0,label:`Annulation – ${e.label||e.cat}`,note:"Commande annulée, remboursée en totalité",fileId:null,fileName:null};
     await store.put("entries",r); state.entries.push(r); }
+  if(old && e.type==="vente" && !e.refund && (old.country!==e.country||old.countryName!==e.countryName||old.tva!==e.tva)){
+    for(const r of state.entries.filter(x=>x.linkedTo===e.id)){ Object.assign(r,{country:e.country,countryName:e.countryName,tva:e.tva}); await store.put("entries",r); } }
   if(old && old.src==="etsy-releve") syncEtsyTotal(e,e.amount);
   await reconcileEtsy(e.date); if(old && old.date!==e.date) await reconcileEtsy(old.date);
   await touch();
