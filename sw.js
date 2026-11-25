@@ -1,5 +1,5 @@
 // Permet d'ouvrir l'app même sans connexion. Toujours la version en ligne d'abord, la copie locale en secours.
-const CACHE = "maison-gabriel-v4";
+const CACHE = "maison-gabriel-v5";
 const FILES = ["./", "./index.html", "./config.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-512-maskable.png", "./apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
