@@ -274,6 +274,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;font-size:13.5px;opacity:0;transition:.25s;z-index:90;pointer-events:none}
 .toast.on{opacity:1;transform:translateX(-50%)}
+.bulk{position:fixed;bottom:22px;right:22px;width:380px;max-width:calc(100vw - 44px);background:#fff;border:1px solid var(--line2);border-radius:14px;box-shadow:0 12px 40px rgba(80,30,40,.18);padding:16px 18px;z-index:95;font-size:13.5px}
+.bulk b{display:block;font-size:14.5px;margin-bottom:4px} .bulk .bar{height:6px;background:var(--track);border-radius:3px;margin:10px 0 4px;overflow:hidden} .bulk .bar i{display:block;height:100%;background:var(--accent);transition:width .2s}
+.bulk ul{margin:8px 0 0;padding-left:18px;color:var(--ink2)} .bulk .x{position:absolute;top:8px;right:10px;border:0;background:none;font-size:18px;cursor:pointer;color:var(--ink2)}
 .banner{background:var(--cerisier);border:1px solid var(--cancan);color:#7d3a42;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:flex;gap:10px;align-items:center}
 .banner .btn{margin-left:auto}
 .hidden{display:none!important}
@@ -570,6 +573,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 <input type="file" id="attachPick" accept=".pdf,image/*,.heic,.png,.jpg,.jpeg" class="hidden">
 <input type="file" id="restorePick" accept=".json,application/json" class="hidden">
 <div class="toast" id="toast"></div>
+<div class="bulk hidden" id="bulk"></div>
 <div id="printArea"></div>
 
 <script>
@@ -1038,7 +1042,7 @@ async function pdfText(file){
   if(typeof DecompressionStream==="undefined") return null;
   const buf=new Uint8Array(await file.arrayBuffer());
   const raw=new TextDecoder("windows-1252").decode(buf);
-  const pieces=[]; const re=/stream\r?\n/g; let m;
+  const pieces=[]; const re=/(?<!end)stream\r?\n/g; let m;
   while((m=re.exec(raw))){
     const start=m.index+m[0].length; const end=raw.indexOf("endstream",start); if(end<0) break;
     const dict=raw.slice(Math.max(0,m.index-300),m.index);
@@ -1053,13 +1057,22 @@ async function pdfText(file){
       else txt=raw.slice(start,end);
       if(/T[jJ]/.test(txt)) pieces.push(...pdfStrings(txt));
     }catch(e){ /* flux non lisible : on ignore */ }
-    re.lastIndex=end;
+    re.lastIndex=end+9;
   }
   return pieces.length?pieces:null;
 }
 const num=s=>parseFloat(String(s).replace(/\s| /g,"").replace(/,(\d{2})$/,".$1").replace(/,/g,""));
 async function readInvoice(file){
   const pieces=await pdfText(file); if(!pieces) return null;
+  return readPieces(pieces);
+}
+/* Un PDF peut contenir plusieurs bons de commande Etsy (impression groupée) : un par « Commande n° » */
+function splitOrders(pieces){
+  const idx=[]; pieces.forEach((x,i)=>{ if(/^\s*Commande n°\s*\d{6,}/i.test(x)) idx.push(i); });
+  if(idx.length<2) return [pieces];
+  return idx.map((st,k)=>pieces.slice(k?st:0, idx[k+1]??pieces.length));
+}
+function readPieces(pieces){
   const all=pieces.join("\n");
   // Facture Etsy
   if(/Etsy/i.test(all) && /Invoice Period/i.test(all)){
@@ -1091,7 +1104,7 @@ async function readInvoice(file){
     info.etsyOrder=om[1];
     const dm=flat.match(/date de la commande\s*:?\s*(\d{1,2})\s+([a-zéûè]+)\.?\s+(\d{4})/i);
     if(dm){ const mo=MONTH_ANY[dm[2].toLowerCase()]; if(mo) info.date=`${dm[3]}-${pad(mo)}-${pad(+dm[1])}`; }
-    const tm=flat.match(/total de la commande\s*:?\s*(\d[\d\s .,]*\d)\s*€/i); if(tm) info.amount=num(tm[1]);
+    const tm=flat.match(/total de la commande\s*:?\s*(\d[\d\s .,  ]*?[.,]\d{2})(?!\d)/i); if(tm) info.amount=num(tm[1]);
     const pi=pieces.findIndex(x=>/pays de destination/i.test(x));
     if(pi>=0){ const seg=pieces.slice(pi+1,pi+8).join(" "); info.country=detectCountry(seg); info.customer=(pieces[pi+1]||"").trim(); }
   }
@@ -1156,6 +1169,7 @@ function applyInvoice(info){
     if(info.amount) $("#fAmount").value=info.amount.toFixed(2);
     if(info.date) $("#fDate").value=info.date;
     $("#fLabel").value=`Commande Etsy #${info.etsyOrder}`;
+    if(knownOrders().has(String(info.etsyOrder))){ const h=$("#mHint"); h.textContent=`⚠ La commande #${info.etsyOrder} est déjà enregistrée. Cliquez sur Annuler pour ne pas la compter deux fois.`; h.classList.remove("ok"); if(info.country){ modal.country=info.country.zone; modal.countryName=info.country.name; } syncCountry(); return; }
     if(info.customer && !$("#fParty").value) $("#fParty").value=info.customer;
     if(info.country){ modal.country=info.country.zone; modal.countryName=info.country.name; } syncCountry();
     const h=$("#mHint"); h.textContent=`✓ Commande Etsy reconnue : montant, date et pays du client (${info.country?info.country.name:"non trouvé"}) remplis. Vérifiez puis enregistrez.`; h.classList.add("ok");
@@ -1409,6 +1423,7 @@ async function openFileFlow(file){
   let info=null;
   if(/pdf/i.test(file.type)||/\.pdf$/i.test(file.name)){ try{ info=await readInvoice(file); }catch(e){ console.warn(e); } }
   if(info && info.etsy) return openEtsy(file,info);
+  if(info && info.etsyOrder && !bulkLeft.has(file)){ try{ const pc=await pdfText(file); if(pc && splitOrders(pc).length>1) return bulkImport([file]); }catch(e){} }
   openEntry({file});
   if(info) applyInvoice(info);
 }
@@ -1429,6 +1444,7 @@ async function saveEntry(){
   const old=modal.editing;
   const e = old ? {...old} : {id:uid(),created:Date.now(),fileId:null,fileName:null};
   Object.assign(e,{type:modal.type,amount:Math.round(amount*100)/100,date,cat:$("#fCat").value,label:$("#fLabel").value.trim(),party:$("#fParty").value.trim(),note:$("#fNote").value.trim(),tva:parseFloat($("#fTva").value)||0,refund:$("#fRefund").checked,country:modal.type==="vente"?(modal.country||"FR"):undefined,countryName:modal.type==="vente"?(modal.countryName||"France"):undefined,autoliq:modal.type==="depense"&&state.settings.regime==="tva"&&$("#fAutoliq").checked,vatPaid:(modal.type==="depense"?Math.round((parseFloat(String($("#fVat").value).replace(",","."))||0)*100)/100:0)});
+  { const m=(e.label||"").match(/Commande Etsy #(\d+)/); if(m&&e.type==="vente"&&!e.refund) e.etsyOrder=m[1]; }
   if(e.vatPaid>e.amount){ $("#mHint").textContent="La TVA ne peut pas dépasser le montant."; return; }
   try{
     // l'app ne garde jamais de copie de la facture : seulement son nom, pour s'y retrouver
@@ -1485,10 +1501,59 @@ async function openFile(fid){
   const url=URL.createObjectURL(f.blob); window.open(url,"_blank"); setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 
+/* ---------- Plusieurs bons de commande d'un coup : lecture et enregistrement automatiques ---------- */
+const bulkLeft=new WeakSet();
+const bulk={running:false,files:[],done:0,total:0,saved:0,dup:0,abroad:{},left:[],months:new Set(),sum:0};
+const withTimeout=(p,ms)=>Promise.race([p,new Promise(r=>setTimeout(()=>r("__timeout"),ms))]);
+function knownOrders(){ const k=new Set(); state.entries.forEach(e=>{ if(e.etsyOrder) k.add(String(e.etsyOrder)); else { const m=(e.label||"").match(/Commande Etsy #(\d+)/); if(m&&!e.refund) k.add(m[1]); } }); return k; }
+function bulkShow(final){
+  const el=$("#bulk"); el.classList.remove("hidden");
+  if(!final){ el.innerHTML=`<b>Lecture des bons de commande…</b>${bulk.done} / ${bulk.total} fichier${bulk.total>1?"s":""} · ${bulk.saved} commande${bulk.saved>1?"s":""} enregistrée${bulk.saved>1?"s":""}<div class="bar"><i style="width:${bulk.total?Math.round(bulk.done/bulk.total*100):0}%"></i></div><small>Vous pouvez continuer à travailler.</small>`; return; }
+  const ab=Object.entries(bulk.abroad).map(([k,v])=>`${k} ${v}`).join(", ");
+  el.innerHTML=`<button class="x" aria-label="Fermer">×</button><b>✓ ${bulk.saved} commande${bulk.saved>1?"s":""} Etsy enregistrée${bulk.saved>1?"s":""}</b>${bulk.saved?`Total ${fmt(bulk.sum)} TTC`:""}<ul>${ab?`<li>Hors de France : ${esc(ab)}</li>`:""}${bulk.dup?`<li>${bulk.dup} déjà enregistrée${bulk.dup>1?"s":""} : ignorée${bulk.dup>1?"s":""} (pas de doublon)</li>`:""}${bulk.left.length?`<li>${bulk.left.length} fichier${bulk.left.length>1?"s":""} à compléter à la main : ${bulk.left.length>1?"ils vont s'ouvrir":"il va s'ouvrir"} l'un après l'autre</li>`:""}</ul>`;
+  el.querySelector(".x").onclick=()=>el.classList.add("hidden");
+}
+async function bulkImport(files){
+  bulk.files.push(...files); bulk.total+=files.length;
+  if(bulk.running) return; bulk.running=true;
+  Object.assign(bulk,{saved:0,dup:0,abroad:{},left:[],months:new Set(),sum:0}); bulkShow();
+  const known=knownOrders(); const tvaMode=state.settings.regime==="tva";
+  while(bulk.files.length){
+    const f=bulk.files.shift();
+    try{
+      if(isCSV(f) || !(/pdf/i.test(f.type)||/\.pdf$/i.test(f.name))){ bulk.left.push(f); continue; }
+      const pieces=await withTimeout(pdfText(f),20000);
+      if(!pieces||pieces==="__timeout"){ bulk.left.push(f); continue; }
+      const first=readPieces(pieces);
+      if(first&&first.etsy){ bulk.left.push(f); continue; }   // facture TVA Etsy → « Mon mois Etsy »
+      const orders=splitOrders(pieces).map(readPieces).filter(o=>o&&o.etsyOrder);
+      const good=orders.filter(o=>o.amount>0&&o.date);
+      if(!good.length||good.length<orders.length&&orders.length===1){ bulk.left.push(f); continue; }
+      for(const o of good){
+        if(known.has(String(o.etsyOrder))){ bulk.dup++; continue; }
+        const c=o.country||{name:"France",zone:"FR"};
+        const e={id:uid(),created:Date.now(),fileId:null,fileName:f.name,type:"vente",amount:Math.round(o.amount*100)/100,date:o.date,cat:"Etsy",label:`Commande Etsy #${o.etsyOrder}`,etsyOrder:String(o.etsyOrder),party:o.customer||"",note:"",
+          tva:tvaMode?(c.zone==="HORS_UE"?0:state.settings.tvaDefault):0,refund:false,country:c.zone,countryName:c.name,autoliq:false,vatPaid:0};
+        await store.put("entries",e); state.entries.push(e); known.add(e.etsyOrder);
+        bulk.saved++; bulk.sum+=e.amount; bulk.months.add(e.date.slice(0,7)+"-01");
+        if(c.zone!=="FR") bulk.abroad[c.name]=(bulk.abroad[c.name]||0)+1;
+      }
+      if(orders.length>good.length) bulk.left.push(f);
+    }catch(err){ console.warn(err); bulk.left.push(f); }
+    finally{ bulk.done++; if(bulk.running) bulkShow(); }
+  }
+  for(const d of bulk.months) await reconcileEtsy(d);
+  if(bulk.saved){ const last=[...bulk.months].sort().pop(); state.y=+last.slice(0,4); state.m=+last.slice(5,7)-1; await touch(); }
+  bulk.running=false; bulkShow(true); render();
+  const left=bulk.left; left.forEach(f=>bulkLeft.add(f)); bulk.done=0; bulk.total=0;
+  if(left.length){ if($("#mEntry").classList.contains("on")||$("#mEtsy").classList.contains("on")) modal.queue.push(...left); else { modal.queue.push(...left.slice(1)); openFileFlow(left[0]); } }
+}
 function enqueue(files){
   const ok=[...files].filter(f=>f.size>0);
   if(!ok.length) return;
   const csvs=ok.filter(isCSV);
+  if(bulk.running){ bulkImport(ok); return; }
+  if(ok.length>=2 && !(csvs.length===1 && ok.length===2)){ bulkImport(ok); return; }
   if(csvs.length===1 && ok.length===2){ (async()=>{ await openFileFlow(csvs[0]); await etsyAttach(ok.find(f=>!isCSV(f))); })(); return; }
   if($("#mEntry").classList.contains("on")||$("#mEtsy").classList.contains("on")){ modal.queue.push(...ok); $("#mQueue").textContent=`encore ${modal.queue.length} fichier${modal.queue.length>1?"s":""} après celui-ci`; return; }
   modal.queue.push(...ok.slice(1)); openFileFlow(ok[0]);
