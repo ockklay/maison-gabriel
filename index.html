@@ -42,6 +42,16 @@ aside{width:220px;flex:none;background:var(--side) radial-gradient(90% 40% at 50
 .nav:hover{background:var(--hover)}
 .nav.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(80,40,45,.08);font-weight:600}
 .nav svg{width:16px;height:16px;flex:none}
+.findrop{border:2px dashed var(--line2);border-radius:16px;padding:34px 24px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:rgba(255,250,251,.7);cursor:pointer;margin-bottom:16px;transition:.15s}
+.findrop:hover{border-color:var(--accent);background:var(--accent-soft)}
+.findrop .ic{width:60px;height:60px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;color:var(--accent-dark)}
+.findrop b{font-size:16px;font-family:var(--title);font-weight:500}
+.findrop span{color:var(--ink2);font-size:13px;max-width:560px}
+.chk-row{display:flex;align-items:flex-start;gap:12px;padding:10px 2px;border-bottom:1px solid var(--track)}
+.chk-row:last-child{border-bottom:0}
+.chk-row .st{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;flex:none;font-size:13px;font-weight:700}
+.chk-row .st.ok{background:#e3f2e8;color:var(--good)} .chk-row .st.no{background:#fbecec;color:var(--bad)} .chk-row .st.info{background:var(--track);color:var(--ink2)}
+.chk-row b{display:block;font-weight:600} .chk-row small{color:var(--ink2);font-size:12.5px}
 .nav-sec{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink3);font-weight:600;padding:14px 10px 4px}
 .nav .hc{margin-left:auto;font-size:11px;color:var(--ink3);font-weight:400}
 .nav.add{color:var(--ink3);font-size:13px}
@@ -282,7 +292,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
   <div class="nav-sec">Récaps annuels</div>
   <div id="yearNav"></div>
   <button class="nav" data-view="account"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="5.5" r="2.8"/><path d="M2.8 14c.6-2.8 2.7-4.3 5.2-4.3s4.6 1.5 5.2 4.3"/></svg><span>Mon compte</span></button>
-  <button class="nav" data-view="options"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 4h7M12 4h2M2 8h2M7 8h7M2 12h8M13 12h1"/><circle cx="10.5" cy="4" r="1.5"/><circle cx="5.5" cy="8" r="1.5"/><circle cx="11.5" cy="12" r="1.5"/></svg><span>Options</span></button>
+  <button class="nav" data-view="options" data-opt=""><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 4h7M12 4h2M2 8h2M7 8h7M2 12h8M13 12h1"/><circle cx="10.5" cy="4" r="1.5"/><circle cx="5.5" cy="8" r="1.5"/><circle cx="11.5" cy="12" r="1.5"/></svg><span>Options</span></button>
+  <div id="optNav"></div>
   <button class="nav" data-view="set"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3"/></svg><span>Réglages</span></button>
   <div class="side-foot" id="sideFoot"></div>
 </aside>
@@ -401,16 +412,30 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 
     <!-- OPTIONS -->
     <section id="v-options" class="hidden">
-      <header class="top"><h1>Options</h1></header>
+      <header class="top"><h1 id="optTitle">Options</h1></header>
       <div class="set">
-        <div class="card">
+        <div class="card opt" data-opt="fin" id="finCard" style="padding-bottom:20px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px"><label style="margin:0;font-size:16px">Fin de mois</label><div class="spacer"></div>
+            <div class="month-nav"><button data-act="fprev" aria-label="Mois précédent">‹</button><span id="finLabel"></span><button data-act="fnext" aria-label="Mois suivant">›</button></div></div>
+          <div class="findrop" data-act="pick">
+        <div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
+        <b>Glissez ici le relevé CSV Etsy et la facture TVA Etsy <span id="finDropMonth"></span></b>
+        <span>Les deux ensemble ou l'un après l'autre. Etsy › Finances › Relevé mensuel › Télécharger CSV, et la facture TVA reçue vers le 10 du mois suivant.</span>
+      </div>
+      <div style="margin:4px 0 14px"><h2 id="finCheckTitle" style="font-size:14.5px;margin:0 0 2px">Liste de vérification</h2><div class="sub">Ce qui est déjà dans l'app pour ce mois</div><div id="finCheck"></div></div>
+      <div><h2 style="font-size:14.5px;margin:0 0 2px">Le mois en chiffres</h2><div class="sub" id="finSub"></div><div id="finNums"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><button class="btn" data-act="finEtsy">Ouvrir « Mon mois Etsy »</button><button class="btn" data-act="finPdf">PDF du mois</button><button class="btn" data-act="finXls">Excel du mois</button><button class="btn ghost" data-act="finRecap">Voir le récap du mois</button></div>
+      </div>
+        </div>
+
+        <div class="card opt" data-opt="tva">
           <label>Régime de TVA</label>
           <p>Change la façon dont le bénéfice est calculé. Vous pourrez modifier ce choix à tout moment ; vos opérations ne sont pas perdues.</p>
           <label class="radio" style="font-weight:400"><input type="radio" name="regime" value="franchise"><span><b>Je ne facture pas la TVA</b> (franchise en base)<small>Les montants sont pris tels quels.</small></span></label>
           <label class="radio" style="font-weight:400"><input type="radio" name="regime" value="tva"><span><b>Je facture la TVA</b><small>Vous saisissez les montants TTC et le taux ; le bénéfice est calculé hors taxes et la TVA à reverser est affichée.</small></span></label>
           <div id="tvaDefaultWrap" style="margin-top:8px;max-width:220px"><label style="font-weight:500;font-size:12.5px;color:var(--ink2)">Taux de TVA par défaut (%)</label><input type="number" id="tvaDefault" step="0.1" min="0"></div>
         </div>
-        <div class="card">
+        <div class="card opt" data-opt="cats">
           <label>Catégories</label>
           <p>Ajoutez, renommez ou supprimez vos catégories. Renommer met à jour toutes les opérations déjà classées. Supprimer ne touche pas aux opérations existantes : elles gardent leur catégorie.</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px">
@@ -420,10 +445,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
               <div class="catadd"><input type="text" id="catNew-depense" placeholder="Nouvelle catégorie de dépense"><button class="btn sm" data-act="catAdd" data-type="depense">Ajouter</button></div></div>
           </div>
         </div>
-        <div class="card">
-          <label>Années et handicap de trésorerie</label>
-          <p>Les années affichées dans la colonne de gauche, avec le montant à rattraper au 1er janvier (point de départ de la colonne « Trésorerie »). Laissez vide ou 0 pour repartir de zéro. Le × retire l'année de la colonne de gauche, sans effacer ses opérations.</p>
-          <div id="hcList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px"></div>
+        <div class="card opt" data-opt="years">
+          <label>Années</label>
+          <p>Les années affichées dans la colonne de gauche. Le × retire une année du menu, sans effacer ses opérations.</p>
+          <div id="hcList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px"></div>
           <div class="catadd" style="max-width:340px;margin-top:14px"><input type="number" id="yearNew" placeholder="Ajouter une année, ex. 2024" min="2000" max="2100" step="1"><button class="btn sm" data-act="yearAdd">Ajouter</button></div>
         </div>
       </div>
@@ -639,8 +664,8 @@ async function touch(){ state.settings.lastChange=Date.now(); await saveSettings
 function render(){
   $$(".monthLabel").forEach(el=>el.textContent = `${MONTHS[state.m][0].toUpperCase()+MONTHS[state.m].slice(1)} ${state.y}`);
   $$(".monthSub").forEach(el=>el.textContent = `Dépenses ${/^[aeiouy]/.test(MONTHS[state.m])?"d'":"de "}${MONTHS[state.m]} ${state.y}, par catégorie`);
-  renderYearNav();
-  $$(".nav").forEach(b=>b.classList.toggle("on",b.dataset.view===state.view && (state.view!=="year" || +b.dataset.year===state.year) && (state.view!=="month" || (+b.dataset.year===state.y && +b.dataset.month===state.m))));
+  renderYearNav(); renderOptNav();
+  $$(".nav").forEach(b=>b.classList.toggle("on",b.dataset.view===state.view && (state.view!=="year" || +b.dataset.year===state.year) && (state.view!=="month" || (+b.dataset.year===state.y && +b.dataset.month===state.m)) && (state.view!=="options" || (b.dataset.opt? b.dataset.opt===state.optTab : !!state.optClosed))));
   ["dash","ops","year","month","account","options","set"].forEach(v=>$("#v-"+v).classList.toggle("hidden",v!==state.view));
   if(state.view==="month") renderMonthRecap();
   if(state.view==="dash") renderDash();
@@ -648,6 +673,7 @@ function render(){
   if(state.view==="year") renderYear();
   if(state.view==="set"||state.view==="options") renderSettings();
   if(state.view==="account") renderSyncCard();
+  if(state.view==="options") renderFin();
   renderSideFoot(); renderBackupWarn();
 }
 
@@ -775,12 +801,19 @@ async function removeYear(Y){
   await saveSettings(); if((state.view==="year"&&state.year===Y)||(state.view==="month"&&state.y===Y)) state.view="options";
   render(); toast(`Récap ${Y} retiré du menu`);
 }
-function handicapOf(Y){ return +((state.settings.years||{})[Y]||0); }
+function handicapOf(Y){ return 0; } // handicap de trésorerie supprimé
 /* récaps mensuels automatiques : chaque mois qui a au moins une opération */
 /* ventes Etsy présentes mais facture TVA Etsy pas encore glissée (elle arrive vers le 10 du mois suivant) */
 function etsyFeesPending(y,m){ const l=state.entries.filter(e=>inMonth(e,y,m)); return l.some(e=>e.type==="vente"&&e.cat==="Etsy") && !l.some(e=>e.type==="depense"&&/Etsy/i.test(e.cat)); }
 function monthRecaps(Y){ const ms=new Set(); state.entries.forEach(e=>{ if(e.date&&+e.date.slice(0,4)===Y) ms.add(+e.date.slice(5,7)-1); }); return [...ms].sort((a,b)=>a-b); }
 const cap=t=>t[0].toUpperCase()+t.slice(1);
+const OPT_TABS=[["fin","Fin de mois"],["tva","TVA"],["cats","Catégories"],["years","Années"]];
+function renderOptNav(){
+  const open = state.view==="options" && !state.optClosed;
+  $("#optNav").innerHTML = open ? OPT_TABS.map(([k,l])=>`<button class="nav sub ${state.optTab===k?"on":""}" data-view="options" data-opt="${k}"><span>${l}</span></button>`).join("") : "";
+  $$("#v-options .opt").forEach(c=>c.classList.toggle("hidden",c.dataset.opt!==(state.optTab||"fin")));
+  const t=OPT_TABS.find(x=>x[0]===(state.optTab||"fin")); if($("#optTitle")) $("#optTitle").textContent=t?t[1]:"Options";
+}
 function renderYearNav(){
   let open = (state.view==="year") ? state.year : (state.view==="month" ? state.y : null);
   if(open!==null && state.navClosed===open) open=null;
@@ -797,32 +830,23 @@ function renderYearNav(){
 function renderYear(){
   const Y=state.year; $("#yearLabel").textContent=Y;
   const tva=state.settings.regime==="tva";
-  const hc=handicapOf(Y); const start=-hc;
   const ys=summarize(state.entries.filter(e=>+e.date.slice(0,4)===Y));
-  const end=start+ys.net;
   $("#ykpis").innerHTML=`
-    <div class="kpi"><div class="l"><span class="dot" style="background:var(--sale)"></span>Ventes ${Y}${tva?" HT":""}</div><div class="v num">${fmt(ys.sales)}</div>${tva?`<div class="d">TVA à reverser : <b>${fmt(ys.tvaDue)}</b></div>`:""}${ys.ueHT||ys.exportHT?`<div class="d">${ys.ueHT?`dont UE hors France : <b>${fmt(ys.ueHT)}</b> / seuil ${fmt(OSS_LIMIT)}${ys.ueHT>=OSS_LIMIT?' <span class="down">⚠ seuil dépassé : OSS</span>':ys.ueHT>=0.8*OSS_LIMIT?' <span class="down">⚠ proche du seuil</span>':""}`:""}${ys.ueHT&&ys.exportHT?"<br>":""}${ys.exportHT?`dont exportations hors UE : <b>${fmt(ys.exportHT)}</b>`:""}</div>`:""}</div>
+    <div class="kpi"><div class="l"><span class="dot" style="background:var(--sale)"></span>Ventes ${Y}${tva?" HT":""}</div><div class="v num">${fmt(ys.sales)}</div>${ys.ueHT||ys.exportHT?`<div class="d">${ys.ueHT?`dont UE hors France : <b>${fmt(ys.ueHT)}</b> / seuil ${fmt(OSS_LIMIT)}${ys.ueHT>=OSS_LIMIT?' <span class="down">⚠ seuil dépassé : OSS</span>':ys.ueHT>=0.8*OSS_LIMIT?' <span class="down">⚠ proche du seuil</span>':""}`:""}${ys.ueHT&&ys.exportHT?"<br>":""}${ys.exportHT?`dont exportations hors UE : <b>${fmt(ys.exportHT)}</b>`:""}</div>`:""}</div>
     <div class="kpi"><div class="l"><span class="dot" style="background:var(--exp)"></span>Dépenses ${Y}${tva?" HT":""}</div><div class="v num">${fmt(ys.exp)}</div>${!tva&&ys.vatPaid?`<div class="d">dont TVA payée : <b>${fmt(ys.vatPaid)}</b></div>`:""}</div>
-    <div class="kpi"><div class="l">Bénéfice ${Y}</div><div class="v num" style="color:${ys.net<0?"var(--bad)":"inherit"}">${fmt(ys.net)}</div><div class="d">marge ${ys.margin==null?"—":ys.margin.toFixed(0)+" %"}</div></div>
-    <div class="kpi hero"><div class="l">Trésorerie fin ${Y}</div><div class="v num">${fmt(end)}</div><div class="d">${hc?`départ ${fmt(start)} + bénéfice ${fmt(ys.net)}`:"bénéfice de l'année"}${hc?`<br>${end>=0?'<span class="up">✓ handicap rattrapé</span>':`encore <b>${fmt(-end)}</b> à rattraper`}`:""}</div></div>`;
-  let h=`<table class="ann"><thead><tr><th>Mois</th><th>Ventes</th><th>Dépenses</th>${!tva?"<th>dont TVA</th>":""}${tva?"<th>TVA due</th>":""}<th>Bénéfice</th><th>Trésorerie</th><th>Op.</th></tr></thead><tbody>`;
-  const span=(!tva?1:0)+(tva?1:0);
-  h+=`<tr class="startrow"><td>Départ 1er janvier</td><td></td><td></td>${"<td></td>".repeat(span)}<td></td><td class="num" style="font-weight:600;color:${start<0?"var(--bad)":"inherit"}">${fmt(start)}</td><td></td></tr>`;
-  // dernier mois avec des opérations (pour ne pas prolonger la trésorerie dans le futur)
-  let lastM=-1; for(let m=0;m<12;m++) if(monthSum(Y,m).n) lastM=m;
-  if(Y<now.getFullYear()) lastM=11; else if(Y===now.getFullYear()) lastM=Math.max(lastM,now.getMonth());
-  let cash=start;
-  for(let m=0;m<12;m++){ const s=monthSum(Y,m); const cur=Y===now.getFullYear()&&m===now.getMonth(); cash+=s.net;
-    const showCash = m<=lastM;
-    h+=`<tr class="click ${cur?"cur":""}" data-month="${m}"><td>${MONTHS[m][0].toUpperCase()+MONTHS[m].slice(1)}</td><td class="num">${s.sales?fmt(s.sales):"—"}</td><td class="num">${s.exp?fmt(s.exp):"—"}</td>${!tva?`<td class="num muted">${s.vatPaid?fmt(s.vatPaid):"—"}</td>`:""}${tva?`<td class="num muted">${s.n?fmt(s.tvaDue):"—"}</td>`:""}<td class="num" style="font-weight:600;color:${s.net<0?"var(--bad)":"inherit"}">${s.n?fmt(s.net):"—"}${s.n&&etsyFeesPending(Y,m)?' <span class="pendmark" title="Provisoire : frais Etsy pas encore reçus">⏳</span>':""}</td><td class="num" style="color:${cash<0?"var(--bad)":"var(--good)"}">${showCash?fmt(cash):"—"}</td><td class="num muted">${s.n||""}</td></tr>`; }
-  h+=`<tr class="total"><td>Total ${Y}</td><td class="num">${fmt(ys.sales)}</td><td class="num">${fmt(ys.exp)}</td>${!tva?`<td class="num">${fmt(ys.vatPaid)}</td>`:""}${tva?`<td class="num">${fmt(ys.tvaDue)}</td>`:""}<td class="num">${fmt(ys.net)}</td><td class="num" style="color:${end<0?"var(--bad)":"var(--good)"}">${fmt(end)}</td><td class="num">${ys.n}</td></tr></tbody></table>
-  <p class="hint" style="margin:12px 2px 0">Trésorerie = handicap de départ + bénéfice cumulé (HT, hors TVA à reverser). Le handicap se règle dans Réglages. Cliquez sur un mois pour voir son tableau de bord.</p>`;
+    <div class="kpi"><div class="l">${tva?"TVA à reverser "+Y:"Marge "+Y}</div><div class="v num">${tva?fmt(ys.tvaDue):(ys.margin==null?"—":ys.margin.toFixed(0)+" %")}</div>${tva?`<div class="d">collectée ${fmt(ys.tvaC)} · récupérable ${fmt(ys.tvaD)}</div>`:""}</div>
+    <div class="kpi hero"><div class="l">Bénéfice ${Y}</div><div class="v num">${fmt(ys.net)}</div><div class="d">marge ${ys.margin==null?"—":ys.margin.toFixed(0)+" %"}</div></div>`;
+  let h=`<table class="ann"><thead><tr><th>Mois</th><th>Ventes</th><th>Dépenses</th>${!tva?"<th>dont TVA</th>":""}${tva?"<th>TVA due</th>":""}<th>Marge</th><th>Bénéfice</th><th>Op.</th></tr></thead><tbody>`;
+  for(let m=0;m<12;m++){ const s=monthSum(Y,m); const cur=Y===now.getFullYear()&&m===now.getMonth(); const p=s.n&&etsyFeesPending(Y,m)?' <span class="pendmark" title="Provisoire : frais Etsy pas encore reçus">⏳</span>':"";
+    h+=`<tr class="click ${cur?"cur":""}" data-month="${m}"><td>${cap(MONTHS[m])}</td><td class="num">${s.sales?fmt(s.sales):"—"}</td><td class="num">${s.exp?fmt(s.exp):"—"}</td>${!tva?`<td class="num muted">${s.vatPaid?fmt(s.vatPaid):"—"}</td>`:""}${tva?`<td class="num muted">${s.n?fmt(s.tvaDue):"—"}</td>`:""}<td class="num muted">${s.margin==null?"—":s.margin.toFixed(0)+" %"}</td><td class="num" style="font-weight:600;color:${s.net<0?"var(--bad)":"inherit"}">${s.n?fmt(s.net):"—"}${p}</td><td class="num muted">${s.n||""}</td></tr>`; }
+  h+=`<tr class="total"><td>Total ${Y}</td><td class="num">${fmt(ys.sales)}</td><td class="num">${fmt(ys.exp)}</td>${!tva?`<td class="num">${fmt(ys.vatPaid)}</td>`:""}${tva?`<td class="num">${fmt(ys.tvaDue)}</td>`:""}<td class="num">${ys.margin==null?"—":ys.margin.toFixed(0)+" %"}</td><td class="num">${fmt(ys.net)}</td><td class="num">${ys.n}</td></tr></tbody></table>
+  <p class="hint" style="margin:12px 2px 0">Cliquez sur un mois pour voir son tableau de bord.</p>`;
   $("#yearTable").innerHTML=h;
 }
 
 function renderSettings(){
   renderCats(); renderSyncCard();
-  $("#hcList").innerHTML = yearList().map(Y=>`<div><div style="display:flex;align-items:center;justify-content:space-between"><label for="hc${Y}" style="font-weight:600;font-size:13px;color:var(--ink)">${Y}</label><button class="btn ghost sm" data-act="yearDel" data-year="${Y}" title="Retirer ${Y} de la colonne de gauche" style="padding:0 6px;color:var(--ink3);font-size:16px">×</button></div><div class="amount-in"><input type="number" id="hc${Y}" data-hcyear="${Y}" step="0.01" min="0" placeholder="0" value="${handicapOf(Y)||""}" style="font-size:15px;font-weight:500"><span style="font-size:14px">€</span></div></div>`).join("");
+  $("#hcList").innerHTML = yearList().map(Y=>`<div class="catrow" style="justify-content:space-between;border:1px solid var(--line);border-radius:9px;padding:6px 6px 6px 14px"><b>${Y}</b><button class="del" data-act="yearDel" data-year="${Y}" title="Retirer ${Y} de la colonne de gauche">×</button></div>`).join("");
   $$('input[name=regime]').forEach(r=>r.checked=r.value===state.settings.regime);
   $("#tvaDefault").value=state.settings.tvaDefault;
   $("#tvaDefaultWrap").classList.toggle("hidden",state.settings.regime!=="tva");
@@ -1141,12 +1165,41 @@ function applyInvoice(info){
   const h=$("#mHint"); h.textContent=(info.amount?"Montant lu dans la facture : vérifiez-le.":"")+(info.country?` Pays lu : ${info.country.name}.`:""); h.classList.add("ok");
 }
 
+/* ---------- Fin de mois ---------- */
+function finMonth(){ if(state.fy==null){ const d=new Date(now.getFullYear(),now.getMonth()-1,1); state.fy=d.getFullYear(); state.fm=d.getMonth(); } return {y:state.fy,m:state.fm}; }
+function renderFin(){
+  const {y,m}=finMonth(); const mois=`${MONTHS[m]} ${y}`; const period=`${y}-${pad(m+1)}`;
+  $("#finLabel").textContent=cap(MONTHS[m])+" "+y; $("#finDropMonth").textContent=deM(m)+" "+y;
+  const list=state.entries.filter(e=>inMonth(e,y,m));
+  const tot=(state.settings.etsyTotals||{})[period]||{};
+  const feeE=list.filter(e=>e.type==="depense"&&/Etsy/i.test(e.cat));
+  const hasInvoice=!!tot.invoice || feeE.some(e=>/\.pdf$/i.test(e.fileName||"")||/n°/.test(e.label||""));
+  const hasCSV=!!tot.csv || feeE.some(e=>/\.csv$/i.test(e.fileName||""));
+  const slips=list.filter(e=>e.type==="vente"&&e.cat==="Etsy"&&e.src!=="etsy-releve"&&!e.refund);
+  const adj=list.filter(e=>e.src==="etsy-releve"&&e.type==="vente"&&!e.refund).reduce((a,e)=>a+e.amount,0);
+  const buys=list.filter(e=>e.type==="depense"&&!/Etsy/i.test(e.cat));
+  const abroad=slips.filter(e=>e.country&&e.country!=="FR");
+  const row=(st,title,txt)=>`<div class="chk-row"><span class="st ${st}">${st==="ok"?"✓":st==="no"?"!":"i"}</span><div><b>${title}</b><small>${txt}</small></div></div>`;
+  const csvN=tot.count||0;
+  $("#finCheckTitle").textContent=`Liste de vérification — ${mois}`;
+  $("#finCheck").innerHTML=
+    row(slips.length?"ok":"info","Bons de commande Etsy (au fil du mois)", slips.length?`${slips.length} glissé${slips.length>1?"s":""}${csvN?` sur ${csvN} vente${csvN>1?"s":""} dans le relevé Etsy`:""}${abroad.length?` · dont ${abroad.length} hors de France (${[...new Set(abroad.map(e=>e.countryName||"?"))].join(", ")})`:""}${adj>0.004?` · ${fmt(adj)} de ventes sans bon de commande (comptées en France)`:""}`:"Aucun bon de commande glissé. Les ventes du relevé CSV seront comptées en France.")
+   +row(hasCSV?"ok":"no","Relevé CSV Etsy", hasCSV?`Reçu${tot.csv?` (${esc(tot.csv)})`:""} · ventes, remboursements et frais remplis.`:"À glisser ci-dessus (Etsy › Finances › Relevé mensuel › Télécharger CSV).")
+   +row(hasInvoice?"ok":"no","Facture TVA Etsy (frais, autoliquidation)", hasInvoice?`Reçue${tot.invoice?` (${/^\d+$/.test(tot.invoice)?"n° "+esc(tot.invoice):esc(tot.invoice)})`:""} · ${fmt(feeE.reduce((a,e)=>a+sgn(e)*e.amount,0))} de frais.`:"À glisser ci-dessus dès réception (vers le 10 du mois suivant). En attendant, le bénéfice du mois est provisoire ⏳.")
+   +row(buys.length?"ok":"info","Factures d'achat (cire, pots, emballages…)", buys.length?`${buys.length} enregistrée${buys.length>1?"s":""} · ${fmt(buys.reduce((a,e)=>a+sgn(e)*e.amount,0))} TTC.`:"Aucun achat ce mois-ci. Glissez vos factures d'achat n'importe où dans l'app.");
+  if(list.length){ const t=monthTax(y,m); const tvaMode=state.settings.regime==="tva";
+    $("#finSub").textContent=(hasCSV&&hasInvoice)?"Mois complet ✓":"Provisoire : il manque encore des documents.";
+    $("#finNums").innerHTML=`<table class="cattbl">${[["Ventes encaissées TTC",t.salesTTC],["Chiffre d'affaires HT",t.s.sales],...(tvaMode?[["TVA collectée",t.s.tvaC]]:[]),["Frais Etsy",t.feesHT],["Achats HT",t.buysHT],...(tvaMode?[[t.nette>=0?"TVA nette à payer":"Crédit de TVA",Math.abs(t.nette)]]:[])].map(([k,v])=>`<tr><td>${k}</td><td class="num">${fmt(v)}</td></tr>`).join("")}<tr class="total"><td><b>Bénéfice HT</b></td><td class="num"><b>${fmt(t.s.net)}</b></td></tr></table>`;
+  } else { $("#finSub").textContent=""; $("#finNums").innerHTML=`<div class="empty">Rien encore pour ${mois}.</div>`; }
+}
+
 /* ---------- Mon mois Etsy ---------- */
 const deM=m=>/^[aeiouyâ]/i.test(MONTHS[m])?`d'${MONTHS[m]}`:`de ${MONTHS[m]}`;
 const etsy={file:null,info:null};
 function openEtsy(file=null,info=null,csv=null){
   etsy.file=file; etsy.info=info; etsy.csv=csv;
   let d=new Date(state.y,state.m,1);
+  if(state.view==="options"){ const f=finMonth(); d=new Date(f.y,f.m,1); }
   if(info && info.date){ d=new Date(+info.date.slice(0,4),+info.date.slice(5,7)-1,1); }
   if(csv){ d=new Date(csv.y,csv.m,1); }
   $("#eMonth").innerHTML=MONTHS.map((n,i)=>`<option value="${i}" ${i===d.getMonth()?"selected":""}>${n[0].toUpperCase()+n.slice(1)}</option>`).join("");
@@ -1270,9 +1323,11 @@ async function saveEtsy(){
     add.push(fe);
   }
   for(const e of add){ await store.put("entries",e); state.entries.push(e); }
-  state.settings.etsyTotals=state.settings.etsyTotals||{}; state.settings.etsyTotals[period]={sales:x.sales,refunds:x.refunds,count:x.count||0,tva:x.tva};
-  await touch(); state.y=x.y; state.m=x.m; state.view="dash";
-  closeEtsy(); toast(`Mois Etsy ${deM(x.m)} enregistré`); render();
+  state.settings.etsyTotals=state.settings.etsyTotals||{}; const prevT=state.settings.etsyTotals[period]||{};
+  state.settings.etsyTotals[period]={sales:x.sales,refunds:x.refunds,count:x.count||0,tva:x.tva,csv:(etsy.csv&&etsy.csv.name)||prevT.csv||null,invoice:(etsy.info&&(etsy.info.num||etsy.file&&etsy.file.name))||(etsy.file&&etsy.file.name)||prevT.invoice||null};
+  const finReturn=state.view==="options"; await touch(); state.y=x.y; state.m=x.m; state.view="dash";
+  const wasFin=finReturn; closeEtsy(); toast(`Mois Etsy ${deM(x.m)} enregistré`);
+  if(wasFin){ state.view="options"; state.fy=x.y; state.fm=x.m; } render();
 }
 /* Une facture de vente Etsy glissée en retard dans un mois Etsy déjà enregistré :
    seul ce mois est réajusté pour coller au total du relevé Etsy (rien n'est compté deux fois). */
@@ -1536,13 +1591,19 @@ function yearRows(Y){
   for(let m=0;m<12;m++){ const s=monthSum(Y,m); cash+=s.net; out.push({m,s,cash}); } return out;
 }
 function exportYearXlsx(Y){
-  const tva=state.settings.regime==="tva"; const hc=handicapOf(Y); const ys=summarize(state.entries.filter(e=>+e.date.slice(0,4)===Y));
-  const head=["Mois",tva?"Ventes HT":"Ventes",tva?"Dépenses HT":"Dépenses",...(tva?["TVA due"]:[]),"Bénéfice","Marge","Trésorerie"].map(H);
-  const rows=[[{v:`La Maison de Gabriel — Récap annuel ${Y}`,s:4}],[],["Handicap de trésorerie au 1er janvier",E(-hc)],[B("Trésorerie fin d'année"),EB(-hc+ys.net)],[],head,
-    ["Départ 1er janvier","","",...(tva?[""]:[]),"","",E(-hc)],
-    ...yearRows(Y).map(({m,s,cash})=>s.n?[cap(MONTHS[m]),E(s.sales),E(s.exp),...(tva?[E(s.tvaDue)]:[]),E(s.net),s.margin==null?"":{v:s.margin/100,s:6},E(cash)]:[cap(MONTHS[m]),"","",...(tva?[""]:[]),"","",E(cash)]),
-    [B(`Total ${Y}`),EB(ys.sales),EB(ys.exp),...(tva?[EB(ys.tvaDue)]:[]),EB(ys.net),ys.margin==null?"":{v:ys.margin/100,s:6},EB(-hc+ys.net)]];
-  download(`La Maison de Gabriel - Récap ${Y}.xlsx`,xlsx([{name:`Récap ${Y}`,rows,widths:[34,14,14,...(tva?[12]:[]),14,9,14]},opsSheet(state.entries.filter(e=>+e.date.slice(0,4)===Y),`Opérations ${Y}`)]));
+  const tva=state.settings.regime==="tva"; const ys=summarize(state.entries.filter(e=>+e.date.slice(0,4)===Y));
+  const head=["Mois",tva?"Ventes HT":"Ventes",tva?"Dépenses HT":"Dépenses",...(tva?["TVA due"]:[]),"Marge","Bénéfice"].map(H);
+  const rows=[[{v:`La Maison de Gabriel — Récap annuel ${Y}`,s:4}],[],head,
+    ...Array.from({length:12},(_,m)=>{ const s=monthSum(Y,m); return s.n?[cap(MONTHS[m]),E(s.sales),E(s.exp),...(tva?[E(s.tvaDue)]:[]),s.margin==null?"":{v:s.margin/100,s:6},E(s.net)]:[cap(MONTHS[m])]; }),
+    [B(`Total ${Y}`),EB(ys.sales),EB(ys.exp),...(tva?[EB(ys.tvaDue)]:[]),ys.margin==null?"":{v:ys.margin/100,s:6},EB(ys.net)]];
+  const extra=[];
+  if(tva){ const {months:ms,T:TT}=yearTax(Y); const act=ms.filter(x=>x.d.list.length);
+    extra.push({name:"TVA par mois",rows:[[{v:`Déclaration de TVA ${Y} — mois par mois`,s:4}],[],
+      ["Mois","A1 Ventes HT","E1 Exportations","A3/2A Frais Etsy","08 Base 20 %","16 TVA brute","20 TVA déductible","28 TVA nette"].map(H),
+      ...act.map(x=>[cap(MONTHS[x.m]),E(x.s.sales-x.s.exportHT),E(x.s.exportHT),E(x.s.autoliq),E(x.s.sales-x.s.exportHT+x.s.autoliq),E(x.brute),E(x.deduc),E(x.nette)]),
+      [B(`Total ${Y}`),EB(TT.s.sales-TT.s.exportHT),EB(TT.s.exportHT),EB(TT.s.autoliq),EB(TT.s.sales-TT.s.exportHT+TT.s.autoliq),EB(TT.brute),EB(TT.deduc),EB(TT.nette)],[],
+      ["Ventes à distance UE (HT)",E(TT.s.ueHT),"seuil 10 000 €"],[],["Numéros de lignes CA3 à vérifier sur le formulaire. À valider par l'expert-comptable."]],widths:[16,14,14,16,14,13,16,13]}); }
+  download(`La Maison de Gabriel - Récap ${Y}.xlsx`,xlsx([{name:`Récap ${Y}`,rows,widths:[22,14,14,...(tva?[12]:[]),9,14]},...extra,opsSheet(state.entries.filter(e=>+e.date.slice(0,4)===Y),`Opérations ${Y}`)]));
   toast("Fichier Excel enregistré dans Téléchargements");
 }
 function exportOpsXlsx(){ const l=opsList(); const n=state.filterPeriod==="month"?`${MONTHS[state.m]} ${state.y}`:state.filterPeriod==="year"?`${state.y}`:"tout"; download(`La Maison de Gabriel - Opérations ${n}.xlsx`,xlsx([opsSheet(l,`Opérations ${n}`)])); toast("Fichier Excel enregistré dans Téléchargements"); }
@@ -1664,14 +1725,81 @@ function printMonth(Y,m){
     <h2>2. Écritures comptables proposées</h2>${ecr}
     <p style="font-size:8.5pt;color:#8A797D;margin-top:10px">Calculs réalisés par l'app La Maison de Gabriel à partir des opérations saisies. À valider par l'expert-comptable avant toute déclaration.</p>`);
 }
+/* totaux annuels mois par mois, sur le même calcul que le récap mensuel */
+function yearTax(Y){
+  const months=[]; for(let m=0;m<12;m++) months.push({m,...monthTax(Y,m)});
+  const T={}; const keys=["salesTTC","feesHT","autoliqTva","buysTTC","buysHT","buysTva","feesTva","brute","deduc","nette"];
+  keys.forEach(k=>T[k]=months.reduce((a,x)=>a+x[k],0));
+  const sk=["sales","exp","tvaC","tvaD","autoliq","ueHT","exportHT","net"]; T.s={}; sk.forEach(k=>T.s[k]=months.reduce((a,x)=>a+x.s[k],0));
+  T.fees=months.flatMap(x=>x.fees); T.buys=months.flatMap(x=>x.buys); T.sales=months.flatMap(x=>x.sales);
+  return {months,T};
+}
 function printYear(Y){
-  const tva=state.settings.regime==="tva"; const hc=handicapOf(Y); const ys=summarize(state.entries.filter(e=>+e.date.slice(0,4)===Y));
-  const rows=yearRows(Y).map(({m,s,cash})=>`<tr><td>${cap(MONTHS[m])}</td>${s.n?r(s.sales)+r(s.exp)+(tva?r(s.tvaDue):"")+r(s.net):`<td class="r">—</td><td class="r">—</td>${tva?'<td class="r">—</td>':""}<td class="r">—</td>`}${r(cash)}</tr>`).join("");
+  const tva=state.settings.regime==="tva"; const {months,T}=yearTax(Y); const s=T.s;
+  const rows=(arr)=>arr.map(([a,b,cls])=>`<tr${cls?` class="${cls}"`:""}><td>${a}</td>${typeof b==="number"?r(b):`<td class="r">${b}</td>`}</tr>`).join("");
+  const pendingMonths=months.filter(x=>x.d.list.length&&etsyFeesPending(Y,x.m)).map(x=>MONTHS[x.m]);
+  // 1. En bref
+  const bref=`<table>${rows([
+    ["Ventes encaissées (TTC, port compris, remboursements déduits)",T.salesTTC],
+    ["Chiffre d'affaires HT",s.sales],
+    ...(s.ueHT?[["dont ventes à d'autres pays de l'UE (HT)",s.ueHT]]:[]),
+    ...(s.exportHT?[["dont exportations hors UE (HT, sans TVA)",s.exportHT]]:[]),
+    ...(tva?[["TVA collectée sur les ventes",s.tvaC]]:[]),
+    ["Frais Etsy (HT"+(tva?", autoliquidation":"")+")",T.feesHT],
+    ...(tva?[["TVA autoliquidée sur les frais Etsy (due = déductible)",T.autoliqTva]]:[]),
+    ["Achats de l'année HT (matières, emballages…)",T.buysHT],
+    ...(tva?[["TVA déductible sur les achats",T.buysTva+T.feesTva],[T.nette>=0?"TVA nette de l'année":"Crédit de TVA de l'année",Math.abs(T.nette),"t"]]:[]),
+    ["Bénéfice de l'année (HT)",s.net,"t"]])}</table>`;
+  // 2. Mois par mois
+  const mm=`<table><thead><tr><th>Mois</th><th class="r">Ventes HT</th><th class="r">Frais Etsy</th><th class="r">Achats HT</th>${tva?'<th class="r">TVA nette</th>':""}<th class="r">Bénéfice</th></tr></thead><tbody>
+    ${months.map(x=>{ const n=x.d.list.length; const p=n&&etsyFeesPending(Y,x.m)?" ⏳":"";
+      return `<tr><td>${cap(MONTHS[x.m])}${p}</td>${n?r(x.s.sales)+r(x.feesHT)+r(x.buysHT)+(tva?r(x.nette):"")+r(x.s.net):`<td class="r">—</td><td class="r">—</td><td class="r">—</td>${tva?'<td class="r">—</td>':""}<td class="r">—</td>`}</tr>`; }).join("")}
+    <tr class="t"><td>Total ${Y}</td>${r(s.sales)}${r(T.feesHT)}${r(T.buysHT)}${tva?r(T.nette):""}${r(s.net)}</tr></tbody></table>
+    ${pendingMonths.length?`<div class="box warn">⏳ Facture TVA Etsy pas encore enregistrée pour : ${pendingMonths.join(", ")}. Ces mois sont provisoires.</div>`:""}`;
+  // 3. Frais Etsy par type
+  const fl=feeLines(T.fees);
+  const frais=T.fees.length?`<table><thead><tr><th>Frais Etsy ${Y}</th><th class="r">Montant HT</th></tr></thead><tbody>${fl.length?fl.sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td>${r(v)}</tr>`).join(""):""}<tr class="t"><td>Total (${T.fees.filter(e=>!e.refund).length} facture${T.fees.length>1?"s":""})</td>${r(T.feesHT)}</tr></tbody></table>
+    ${fl.length&&Math.abs(fl.reduce((a,[,v])=>a+v,0)-T.feesHT)>0.05?`<p style="font-size:8.5pt;color:#8A797D">Certaines factures n'ont pas de détail par type : le total fait foi.</p>`:""}
+    ${(()=>{ const ads=fl.filter(([k])=>/publicit|ads/i.test(k)).reduce((a,[,v])=>a+v,0); return ads&&s.sales?`<p class="lead">La publicité Etsy Ads représente ${fmt(ads)}, soit ${Math.round(ads/T.feesHT*100)} % des frais Etsy et ${Math.round(ads/s.sales*100)} % du chiffre d'affaires HT.</p>`:""; })()}`
+    :"<p>Aucun frais Etsy enregistré.</p>";
+  // 4. Achats par catégorie
+  const byCat={}; T.buys.forEach(e=>{ const k=e.cat; byCat[k]=byCat[k]||{ttc:0,tva:0,ht:0}; const g=sgn(e); byCat[k].ttc+=g*e.amount; byCat[k].tva+=g*tvaOf(e); byCat[k].ht+=g*ht(e); });
+  const achats=T.buys.length?`<table><thead><tr><th>Catégorie</th><th class="r">TTC</th><th class="r">TVA</th><th class="r">HT</th></tr></thead><tbody>${Object.entries(byCat).sort((a,b)=>b[1].ht-a[1].ht).map(([k,v])=>`<tr><td>${esc(k)}</td>${r(v.ttc)}${r(v.tva)}${r(v.ht)}</tr>`).join("")}<tr class="t"><td>Total</td>${r(T.buysTTC)}${r(T.buysTva)}${r(T.buysHT)}</tr></tbody></table>`:"<p>Aucun achat enregistré.</p>";
+  // 5. Ventes hors France
+  const ueRows=T.sales.filter(e=>e.country==="UE"||e.country==="HORS_UE");
+  const byC={}; ueRows.forEach(e=>{ const k=(e.countryName&&!/^Autre/.test(e.countryName))?e.countryName:(e.country==="UE"?"UE (pays non précisé)":"Hors UE (pays non précisé)"); byC[k]=byC[k]||{z:e.country,ht:0,n:0}; byC[k].ht+=sgn(e)*ht(e); if(!e.refund) byC[k].n++; });
+  const intl=ueRows.length?`<table><thead><tr><th>Pays</th><th>Zone</th><th class="r">Commandes</th><th class="r">Ventes HT</th></tr></thead><tbody>${Object.entries(byC).sort((a,b)=>b[1].ht-a[1].ht).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.z==="UE"?"UE — TVA française 20 %":"Hors UE — exportation"}</td><td class="r">${v.n}</td>${r(v.ht)}</tr>`).join("")}</tbody></table>
+    <p class="lead">Ventes à distance vers l'UE : <b>${fmt(s.ueHT)}</b> HT sur un seuil de <b>${fmt(OSS_LIMIT)}</b> (${Math.round(s.ueHT/OSS_LIMIT*100)} %).${s.ueHT>=OSS_LIMIT?" <b>Seuil dépassé : inscription au guichet unique OSS et TVA du pays du client.</b>":" Sous le seuil : la TVA française à 20 % s'applique."}</p>`
+    :"<p>Toutes les ventes de l'année sont en France.</p>";
+  // Page 3 : TVA mois par mois (lignes CA3) + écritures cumulées
+  const act=months.filter(x=>x.d.list.length);
+  const tvaTbl=`<table><thead><tr><th>Mois</th><th class="r">A1 Ventes HT</th>${s.exportHT?'<th class="r">E1 Export</th>':""}<th class="r">A3/2A Frais Etsy</th><th class="r">08 Base 20 %</th><th class="r">16 TVA brute</th><th class="r">20 TVA déductible</th><th class="r">28 TVA nette</th></tr></thead><tbody>
+    ${act.map(x=>`<tr><td>${cap(MONTHS[x.m])}</td><td class="r">${e0(x.s.sales-x.s.exportHT)}</td>${s.exportHT?`<td class="r">${e0(x.s.exportHT)}</td>`:""}<td class="r">${e0(x.s.autoliq)}</td><td class="r">${e0(x.s.sales-x.s.exportHT+x.s.autoliq)}</td><td class="r">${e0(x.brute)}</td><td class="r">${e0(x.deduc)}</td><td class="r">${e0(x.nette)}</td></tr>`).join("")}
+    <tr class="t"><td>Total ${Y}</td><td class="r">${e0(s.sales-s.exportHT)}</td>${s.exportHT?`<td class="r">${e0(s.exportHT)}</td>`:""}<td class="r">${e0(s.autoliq)}</td><td class="r">${e0(s.sales-s.exportHT+s.autoliq)}</td><td class="r">${e0(T.brute)}</td><td class="r">${e0(T.deduc)}</td><td class="r">${e0(T.nette)}</td></tr></tbody></table>
+    <p style="font-size:8.5pt;color:#8A797D">Montants arrondis à l'euro, mois par mois. En déclaration mensuelle (CA3) : une ligne par mois. En régime simplifié (CA12) : reporter les totaux de l'année dans les lignes équivalentes. Numéros de lignes à vérifier sur le formulaire en vigueur.</p>`;
+  const pub=fl.filter(([k])=>/publicit|ads/i.test(k)).reduce((a,[,v])=>a+v,0);
+  const ecr=`<table><thead><tr><th>Opération (cumul ${Y})</th><th>Débit</th><th>Crédit</th><th class="r">Montant</th></tr></thead><tbody>
+    <tr><td>Ventes</td><td>467 Etsy</td><td></td>${r(T.salesTTC)}</tr>
+    <tr><td></td><td></td><td>707 Ventes de marchandises</td>${r(s.sales)}</tr>
+    <tr><td></td><td></td><td>44571 TVA collectée</td>${r(s.tvaC)}</tr>
+    ${pub?`<tr><td>Publicité Etsy Ads</td><td>6231 Publicité</td><td>467 Etsy</td>${r(pub)}</tr>`:""}
+    ${T.feesHT?`<tr><td>Commissions et frais Etsy</td><td>622 Commissions</td><td>467 Etsy</td>${r(T.feesHT-pub)}</tr>
+    <tr><td>Autoliquidation TVA sur frais</td><td>44566 TVA déductible</td><td>4452 TVA due intracommunautaire</td>${r(T.autoliqTva)}</tr>`:""}
+    ${T.buysHT?`<tr><td>Achats (matières, emballages…)</td><td>60x Achats + 44566 TVA déductible</td><td>401 Fournisseurs / 512 Banque</td>${r(T.buysTTC)}</tr>`:""}
+    </tbody></table><p style="font-size:8.5pt;color:#8A797D">Comptes du plan comptable général, à adapter par le comptable. Le compte Etsy est suivi en compte d'attente (467 « Etsy »).</p>`;
   printDoc(`Récap annuel ${Y}`,`
-    <div class="pk"><div><span>Ventes</span><b>${fmt(ys.sales)}</b></div><div><span>Dépenses</span><b>${fmt(ys.exp)}</b></div><div><span>Bénéfice</span><b>${fmt(ys.net)}</b></div><div><span>Trésorerie fin ${Y}</span><b>${fmt(-hc+ys.net)}</b></div></div>
-    <table><thead><tr><th>Mois</th><th class="r">Ventes</th><th class="r">Dépenses</th>${tva?'<th class="r">TVA due</th>':""}<th class="r">Bénéfice</th><th class="r">Trésorerie</th></tr></thead><tbody>
-    <tr><td><i>Départ 1er janvier (handicap)</i></td><td></td><td></td>${tva?"<td></td>":""}<td></td>${r(-hc)}</tr>${rows}
-    <tr class="t"><td>Total ${Y}</td>${r(ys.sales)}${r(ys.exp)}${tva?r(ys.tvaDue):""}${r(ys.net)}${r(-hc+ys.net)}</tr></tbody></table>`);
+    <p class="lead">SARL Digitalizz — La Maison de Gabriel · ${tva?"société assujettie et redevable de la TVA · ":""}vente de bougies · période : 1er janvier – 31 décembre ${Y}</p>
+    <div class="pk"><div><span>Ventes encaissées TTC</span><b>${fmt(T.salesTTC)}</b></div><div><span>Chiffre d'affaires HT</span><b>${fmt(s.sales)}</b></div><div><span>${tva?(T.nette>=0?"TVA nette de l'année":"Crédit de TVA"):"Achats HT"}</span><b>${tva?fmt(Math.abs(T.nette)):fmt(T.buysHT)}</b></div><div><span>Bénéfice HT</span><b>${fmt(s.net)}</b></div></div>
+    <h2>1. En bref</h2>${bref}
+    <h2>2. Mois par mois</h2>${mm}
+    <h2>3. Les frais Etsy de l'année</h2>${frais}
+    <h2>4. Les achats de l'année</h2>${achats}
+    <h2>5. Ventes hors de France</h2>${intl}
+    ${tva?`<div class="newpage"></div>
+    <h1 class="sec">Déclaration de TVA — ${Y}</h1>
+    <h2>1. TVA mois par mois (lignes CA3)</h2>${tvaTbl}
+    <h2>2. Écritures comptables cumulées</h2>${ecr}`:""}
+    <p style="font-size:8.5pt;color:#8A797D;margin-top:10px">Calculs réalisés par l'app La Maison de Gabriel à partir des opérations saisies. À valider par l'expert-comptable avant toute déclaration.</p>`);
 }
 
 /* ---------- Synchronisation Supabase ---------- */
@@ -1822,6 +1950,9 @@ function bind(){
   document.addEventListener("click",ev=>{ const b=ev.target.closest(".nav[data-view]"); if(!b) return; const prevView=state.view; state.view=b.dataset.view;
     if(state.view==="year"){ const Y=+b.dataset.year; const wasOpen = prevView==="year" && state.year===Y && state.navClosed!==Y; state.navClosed = wasOpen ? Y : null; state.year=Y; }
     if(state.view!=="year") state.navClosed=null;
+    if(state.view==="options"){ const o=b.dataset.opt;
+      if(o){ state.optTab=o; state.optClosed=false; }
+      else { state.optClosed = (prevView==="options" && !state.optClosed); if(!state.optTab) state.optTab="fin"; } }
     if(state.view==="month"){ state.y=+b.dataset.year; state.m=+b.dataset.month; state.year=state.y; }
     render(); });
   ["#syncUrl","#syncKey"].forEach(id=>$(id).addEventListener("change",()=>Sync.save({url:$("#syncUrl").value.trim(),key:$("#syncKey").value.trim()})));
@@ -1849,6 +1980,11 @@ function bind(){
     if(act==="syncSignup") syncAuth("signup");
     if(act==="syncNow") Sync.sync();
     if(act==="syncLogout"){ if(confirm("Se déconnecter ? Vos chiffres restent sur cet appareil et en ligne.")) Sync.logout(); }
+    if(act==="fprev"||act==="fnext"){ const {y,m}=finMonth(); const d=new Date(y,m+(act==="fnext"?1:-1),1); state.fy=d.getFullYear(); state.fm=d.getMonth(); renderFin(); }
+    if(act==="finEtsy"){ const {y,m}=finMonth(); state.y=y; state.m=m; openEtsy(); }
+    if(act==="finPdf"){ const {y,m}=finMonth(); printMonth(y,m); }
+    if(act==="finXls"){ const {y,m}=finMonth(); exportMonthXlsx(y,m); }
+    if(act==="finRecap"){ const {y,m}=finMonth(); state.view="month"; state.y=y; state.m=m; state.year=y; render(); }
     if(act==="xlsOps") exportOpsXlsx();
     if(act==="xlsYear") exportYearXlsx(state.year);
     if(act==="pdfYear") printYear(state.year);
