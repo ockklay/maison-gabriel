@@ -910,7 +910,7 @@ function guessFromName(name){
 }
 
 function openEntry({file=null,entry=null}={}){
-  modal.editing=entry; modal.file=file; modal.removeFile=false; modal.detected=null; modal.countryName=null;
+  modal.editing=entry; modal.file=file; modal.removeFile=false; modal.wrongSlip=null; modal.detected=null; modal.countryName=null;
   if(modal.url){ URL.revokeObjectURL(modal.url); modal.url=null; }
   const g = file ? guessFromName(file.name) : {};
   const e = entry || {type:null,amount:g.amount??"",date:g.date||defaultDate(),cat:"",label:g.label||"",party:"",note:"",tva:state.settings.tvaDefault};
@@ -1351,6 +1351,13 @@ function applyInvoice(info){
     if(info.amount) $("#fAmount").value=info.amount.toFixed(2);
     if(info.date) $("#fDate").value=info.date;
     $("#fLabel").value=`Commande n° ${info.etsyOrder}`;
+    modal.wrongSlip=null;
+    const ex=state.expect && Date.now()-state.expect.t<180000 ? state.expect : null;
+    if(ex && !info.cancelled){ const d=info.date||"";
+      const wrongNum = ex.nums.length && !ex.nums.includes(String(info.etsyOrder));
+      const wrongMonth = d && d.slice(0,7)!==`${ex.y}-${pad(ex.m+1)}`;
+      if(wrongNum||wrongMonth){ modal.wrongSlip=wrongNum?`Ce n'est pas le bon de commande manquant : vous avez glissé la commande n° ${info.etsyOrder}, il manque ${ex.nums.length>1?"les commandes":"la commande"} ${ex.nums.map(o=>"n° "+o).join(", ")}.`:`Ce bon de commande est de ${deM(+d.slice(5,7)-1)} ${d.slice(0,4)}, pas de ${deM(ex.m)} ${ex.y}.`;
+        if(!knownOrders().has(String(info.etsyOrder))){ const h=$("#mHint"); h.textContent="⚠ "+modal.wrongSlip+" Vérifiez le fichier."; h.classList.remove("ok"); if(info.country){ modal.country=info.country.zone; modal.countryName=info.country.name; } syncCountry(); return; } } }
     if(knownOrders().has(String(info.etsyOrder))){ const h=$("#mHint"); h.textContent=`⚠ La commande #${info.etsyOrder} est déjà enregistrée. Cliquez sur Annuler pour ne pas la compter deux fois.`; h.classList.remove("ok"); if(info.country){ modal.country=info.country.zone; modal.countryName=info.country.name; } syncCountry(); return; }
     if(info.customer && !$("#fParty").value) $("#fParty").value=info.customer;
     if(info.country){ modal.country=info.country.zone; modal.countryName=info.country.name; } syncCountry();
@@ -1375,16 +1382,20 @@ function renderFin(){
   const adj=list.filter(e=>e.src==="etsy-releve"&&e.type==="vente"&&!e.refund).reduce((a,e)=>a+e.amount,0);
   const buys=list.filter(e=>e.type==="depense"&&!/Etsy/i.test(e.cat));
   const abroad=slips.filter(e=>e.country&&e.country!=="FR");
-  const row=(st,title,txt)=>`<div class="chk-row"><span class="st ${st}">${st==="ok"?"✓":st==="no"?"!":"i"}</span><div><b>${title}</b><small>${txt}</small></div></div>`;
+  const row=(st,title,txt,extra="")=>`<div class="chk-row"><span class="st ${st}">${st==="ok"?"✓":st==="no"?"!":"i"}</span><div style="flex:1"><b>${title}</b><small>${txt}</small>${extra}</div></div>`;
   const csvN=tot.count||0;
+  const have=new Set(list.map(orderOf).filter(Boolean));
+  const missingNums=(tot.orders||[]).filter(o=>!have.has(String(o)));
+  const missing=Math.max(missingNums.length, csvN-slips.length, 0);
   $("#finCheckTitle").textContent=`Liste de vérification — ${mois}`;
   $("#finCheck").innerHTML=
-    row(slips.length?"ok":"info","Bons de commande Etsy (au fil du mois)", slips.length?`${slips.length} glissé${slips.length>1?"s":""}${csvN?` sur ${csvN} vente${csvN>1?"s":""} dans le relevé Etsy`:""}${abroad.length?` · dont ${abroad.length} hors de France (${[...new Set(abroad.map(e=>e.countryName||"?"))].join(", ")})`:""}${adj>0.004?` · ${fmt(adj)} de ventes sans bon de commande (comptées en France)`:""}`:"Aucun bon de commande glissé. Les ventes du relevé CSV seront comptées en France.")
+    row(missing>0?"no":slips.length?"ok":"info","Bons de commande Etsy (au fil du mois)", missing>0?`<b style="color:var(--bad);display:inline">Il manque ${missing} bon${missing>1?"s":""} de commande</b> : ${slips.length} glissé${slips.length>1?"s":""} sur ${csvN} vente${csvN>1?"s":""} dans le relevé Etsy${missingNums.length?` · manquant${missingNums.length>1?"s":""} : ${missingNums.map(o=>"n° "+esc(o)).join(", ")}`:""}${adj>0.004?` · ${fmt(adj)} de ventes sans bon de commande`:""}.`
+      : slips.length?`${slips.length} glissé${slips.length>1?"s":""}${csvN?` sur ${csvN} vente${csvN>1?"s":""} dans le relevé Etsy`:""}${abroad.length?` · dont ${abroad.length} hors de France (${[...new Set(abroad.map(e=>e.countryName||"?"))].join(", ")})`:""}${adj>0.004?` · ${fmt(adj)} de ventes sans bon de commande (comptées en France)`:""}`:"Aucun bon de commande glissé. Les ventes du relevé CSV seront comptées en France.", missing>0?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn primary" data-act="finAdd" data-orders="${esc(missingNums.join(","))}" style="padding:7px 14px;font-size:13px">＋ Ajouter ${missing>1?"les bons de commande":"le bon de commande"}</button></div>`:"")
    +row(hasCSV?"ok":"no","Relevé CSV Etsy", hasCSV?`Reçu${tot.csv?` (${esc(tot.csv)})`:""} · ventes, remboursements et frais remplis.`:"À glisser ci-dessus (Etsy › Finances › Relevé mensuel › Télécharger CSV).")
    +row(hasInvoice?"ok":"no","Facture TVA Etsy (frais, autoliquidation)", hasInvoice?`Reçue${tot.invoice?` (${/^\d+$/.test(tot.invoice)?"n° "+esc(tot.invoice):esc(tot.invoice)})`:""} · ${fmt(feeE.reduce((a,e)=>a+sgn(e)*e.amount,0))} de frais.`:"À glisser ci-dessus dès réception (vers le 10 du mois suivant). En attendant, le bénéfice du mois est provisoire ⏳.")
    +row(buys.length?"ok":"info","Factures d'achat (cire, pots, emballages…)", buys.length?`${buys.length} enregistrée${buys.length>1?"s":""} · ${fmt(buys.reduce((a,e)=>a+sgn(e)*e.amount,0))} TTC.`:"Aucun achat ce mois-ci. Glissez vos factures d'achat n'importe où dans l'app.");
   if(list.length){ const t=monthTax(y,m); const tvaMode=state.settings.regime==="tva";
-    $("#finSub").textContent=(hasCSV&&hasInvoice)?"Mois complet ✓":"Provisoire : il manque encore des documents.";
+    $("#finSub").textContent=(hasCSV&&hasInvoice&&missing<=0)?"Mois complet ✓":missing>0&&hasCSV&&hasInvoice?`Presque complet : il manque ${missing} bon${missing>1?"s":""} de commande (le bénéfice est juste, mais le pays de ${missing>1?"ces ventes":"cette vente"} n'est pas vérifié).`:"Provisoire : il manque encore des documents.";
     $("#finNums").innerHTML=`<table class="cattbl">${[["Ventes encaissées TTC",t.salesTTC],["Chiffre d'affaires HT",t.s.sales],...(tvaMode?[["TVA collectée",t.s.tvaC]]:[]),["Frais Etsy",t.feesHT],["Achats HT",t.buysHT],...(tvaMode?[[t.nette>=0?"TVA nette à payer":"Crédit de TVA",Math.abs(t.nette)]]:[])].map(([k,v])=>`<tr><td>${k}</td><td class="num">${fmt(v)}</td></tr>`).join("")}<tr class="total"><td><b>Bénéfice HT</b></td><td class="num"><b>${fmt(t.s.net)}</b></td></tr></table>`;
   } else { $("#finSub").textContent=""; $("#finNums").innerHTML=`<div class="empty">Rien encore pour ${mois}.</div>`; }
 }
@@ -1520,7 +1531,7 @@ async function saveEtsy(){
   }
   for(const e of add){ await store.put("entries",e); state.entries.push(e); }
   state.settings.etsyTotals=state.settings.etsyTotals||{}; const prevT=state.settings.etsyTotals[period]||{};
-  state.settings.etsyTotals[period]={sales:x.sales,refunds:x.refunds,count:x.count||0,tva:x.tva,csv:(etsy.csv&&etsy.csv.name)||prevT.csv||null,invoice:(etsy.info&&(etsy.info.num||etsy.file&&etsy.file.name))||(etsy.file&&etsy.file.name)||prevT.invoice||null};
+  state.settings.etsyTotals[period]={sales:x.sales,refunds:x.refunds,count:x.count||0,tva:x.tva,csv:(etsy.csv&&etsy.csv.name)||prevT.csv||null,invoice:(etsy.info&&(etsy.info.num||etsy.file&&etsy.file.name))||(etsy.file&&etsy.file.name)||prevT.invoice||null,orders:(etsy.csv&&etsy.csv.orders)||prevT.orders||null};
   const finReturn=state.view==="options"; await touch(); state.y=x.y; state.m=x.m; state.view="dash";
   const wasFin=finReturn; closeEtsy(); toast(`Mois Etsy ${deM(x.m)} enregistré`);
   if(wasFin){ state.view="options"; state.fy=x.y; state.fm=x.m; } render();
@@ -1595,7 +1606,7 @@ async function readEtsyCSV(file){
   const period=Object.entries(periods).sort((a,b)=>b[1]-a[1])[0]; if(!period) return null;
   const round=v=>Math.round(v*100)/100;
   const detail=Object.entries(det).map(([k,v])=>[k,round(v)]).filter(([,v])=>v);
-  return {csv:true,name:file.name,period:period[0],y:+period[0].slice(0,4),m:+period[0].slice(5,7)-1,sales:round(sales),refunds:round(refunds),count:orders.size||count,fees:round(fees),detail};
+  return {csv:true,name:file.name,period:period[0],y:+period[0].slice(0,4),m:+period[0].slice(5,7)-1,sales:round(sales),refunds:round(refunds),count:orders.size||count,fees:round(fees),detail,orders:[...orders]};
 }
 const isCSV=f=>/\.csv$/i.test(f.name)||/csv/i.test(f.type);
 async function openFileFlow(file){
@@ -1616,7 +1627,7 @@ function closeEntry(){
   $("#mEntry").classList.remove("on");
   if(modal.url){ URL.revokeObjectURL(modal.url); modal.url=null; }
   modal.file=null; modal.editing=null;
-  if(modal.queue.length) setTimeout(()=>openFileFlow(modal.queue.shift()),180);
+  if(modal.queue.length) setTimeout(()=>openFileFlow(modal.queue.shift()),180); else state.expect=null;
 }
 async function saveEntry(){
   $("#mHint").classList.remove("ok");
@@ -1628,6 +1639,7 @@ async function saveEntry(){
   const e = old ? {...old} : {id:uid(),created:Date.now(),fileId:null,fileName:null};
   Object.assign(e,{type:modal.type,amount:Math.round(amount*100)/100,date,cat:$("#fCat").value,label:$("#fLabel").value.trim(),party:$("#fParty").value.trim(),note:$("#fNote").value.trim(),tva:parseFloat($("#fTva").value)||0,refund:$("#fRefund").checked,country:modal.type==="vente"?(modal.country||"FR"):undefined,countryName:modal.type==="vente"?(modal.countryName||"France"):undefined,autoliq:modal.type==="depense"&&state.settings.regime==="tva"&&$("#fAutoliq").checked,vatPaid:(modal.type==="depense"?Math.round((parseFloat(String($("#fVat").value).replace(",","."))||0)*100)/100:0)});
   { const m=(e.label||"").match(/Commande (?:Etsy #|n°\s*)(\d+)/); if(m&&e.type==="vente"&&!e.refund) e.etsyOrder=m[1]; }
+  if(!old && modal.wrongSlip){ if(!confirm(`⚠ ${modal.wrongSlip}\n\nOK : l'enregistrer quand même\nAnnuler : ne pas l'enregistrer`)){ toast("Bon de commande non enregistré"); closeEntry(); return; } }
   if(!old){ const d=findDupOf(e); if(d){ const o=orderOf(e);
     const ok=confirm(`${o?`La commande n° ${o}`:"Cette facture"} est déjà enregistrée (${d.date.split("-").reverse().join("/")}, ${fmt(d.amount)}).\n\nOK : l'enregistrer quand même\nAnnuler : ne pas l'enregistrer`);
     if(!ok){ toast("Doublon non enregistré"); closeEntry(); return; } } }
@@ -2237,6 +2249,7 @@ function bind(){
     if(act==="syncLogout"){ if(confirm("Se déconnecter ? Vos chiffres restent sur cet appareil et en ligne.")) Sync.logout(); }
     if(act==="fprev"||act==="fnext"){ const {y,m}=finMonth(); const d=new Date(y,m+(act==="fnext"?1:-1),1); state.fy=d.getFullYear(); state.fm=d.getMonth(); renderFin(); }
     if(act==="finEtsy"){ const {y,m}=finMonth(); state.y=y; state.m=m; openEtsy(); }
+    if(act==="finAdd"){ const {y,m}=finMonth(); state.expect={y,m,t:Date.now(),nums:(a.dataset.orders||"").split(",").filter(Boolean)}; $("#filePick").click(); }
     if(act==="finPdf"){ const {y,m}=finMonth(); printMonth(y,m); }
     if(act==="finXls"){ const {y,m}=finMonth(); exportMonthXlsx(y,m); }
     if(act==="finRecap"){ const {y,m}=finMonth(); state.view="month"; state.y=y; state.m=m; state.year=y; render(); }
