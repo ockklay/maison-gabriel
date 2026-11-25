@@ -413,9 +413,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
           </div>
         </div>
         <div class="card">
-          <label>Handicap de trésorerie par année</label>
-          <p>Le montant à rattraper au 1er janvier de chaque année. Il sert de point de départ à la colonne « Trésorerie » des récaps annuels. Laissez vide ou 0 pour repartir de zéro.</p>
-          <div id="hcList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px"></div>
+          <label>Années et handicap de trésorerie</label>
+          <p>Les années affichées dans la colonne de gauche, avec le montant à rattraper au 1er janvier (point de départ de la colonne « Trésorerie »). Laissez vide ou 0 pour repartir de zéro. Le × retire l'année de la colonne de gauche, sans effacer ses opérations.</p>
+          <div id="hcList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px"></div>
+          <div class="catadd" style="max-width:340px;margin-top:14px"><input type="number" id="yearNew" placeholder="Ajouter une année, ex. 2024" min="2000" max="2100" step="1"><button class="btn sm" data-act="yearAdd">Ajouter</button></div>
         </div>
       </div>
     </section>
@@ -745,7 +746,21 @@ function renderOps(){
 function yearList(){
   const ys=new Set(Object.keys(state.settings.years||{}).map(Number));
   state.entries.forEach(e=>e.date&&ys.add(+e.date.slice(0,4)));
-  return [...ys].filter(Boolean).sort((a,b)=>a-b);
+  const hidden=state.settings.hiddenYears||[];
+  return [...ys].filter(y=>y&&!hidden.includes(y)).sort((a,b)=>a-b);
+}
+async function addYear(Y){
+  Y=parseInt(Y); if(!(Y>=2000&&Y<=2100)){ toast("Indiquez une année entre 2000 et 2100"); return false; }
+  state.settings.years=state.settings.years||{}; if(!(Y in state.settings.years)) state.settings.years[Y]=0;
+  state.settings.hiddenYears=(state.settings.hiddenYears||[]).filter(y=>y!==Y);
+  await saveSettings(); return true;
+}
+async function removeYear(Y){
+  const n=state.entries.filter(e=>+e.date.slice(0,4)===Y).length;
+  if(!confirm(`Retirer « Récap ${Y} » de la colonne de gauche ?`+(n?`\n\nSes ${n} opération${n>1?"s":""} ne sont pas effacée${n>1?"s":""} : elles restent comptées dans les autres vues, et l'année revient si vous l'ajoutez de nouveau.`:""))) return;
+  const h=state.settings.hiddenYears||[]; if(!h.includes(Y)) h.push(Y); state.settings.hiddenYears=h;
+  await saveSettings(); if((state.view==="year"&&state.year===Y)||(state.view==="month"&&state.y===Y)) state.view="options";
+  render(); toast(`Récap ${Y} retiré du menu`);
 }
 function handicapOf(Y){ return +((state.settings.years||{})[Y]||0); }
 /* récaps mensuels automatiques : chaque mois qui a au moins une opération */
@@ -793,7 +808,7 @@ function renderYear(){
 
 function renderSettings(){
   renderCats(); renderSyncCard();
-  $("#hcList").innerHTML = yearList().map(Y=>`<div><label for="hc${Y}" style="font-weight:500;font-size:12.5px;color:var(--ink2)">${Y}</label><div class="amount-in"><input type="number" id="hc${Y}" data-hcyear="${Y}" step="0.01" min="0" placeholder="0" value="${handicapOf(Y)||""}" style="font-size:15px;font-weight:500"><span style="font-size:14px">€</span></div></div>`).join("");
+  $("#hcList").innerHTML = yearList().map(Y=>`<div><div style="display:flex;align-items:center;justify-content:space-between"><label for="hc${Y}" style="font-weight:600;font-size:13px;color:var(--ink)">${Y}</label><button class="btn ghost sm" data-act="yearDel" data-year="${Y}" title="Retirer ${Y} de la colonne de gauche" style="padding:0 6px;color:var(--ink3);font-size:16px">×</button></div><div class="amount-in"><input type="number" id="hc${Y}" data-hcyear="${Y}" step="0.01" min="0" placeholder="0" value="${handicapOf(Y)||""}" style="font-size:15px;font-weight:500"><span style="font-size:14px">€</span></div></div>`).join("");
   $$('input[name=regime]').forEach(r=>r.checked=r.value===state.settings.regime);
   $("#tvaDefault").value=state.settings.tvaDefault;
   $("#tvaDefaultWrap").classList.toggle("hidden",state.settings.regime!=="tva");
@@ -1518,7 +1533,7 @@ function bind(){
   ["#syncUrl","#syncKey"].forEach(id=>$(id).addEventListener("change",()=>Sync.save({url:$("#syncUrl").value.trim(),key:$("#syncKey").value.trim()})));
   $("#syncPass").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); syncAuth("login"); } });
   document.addEventListener("change",e=>{ const el=e.target.closest("input[data-cat-t]"); if(el) renameCat(el.dataset.catT,+el.dataset.catI,el.value); });
-  document.addEventListener("keydown",e=>{ if(e.key!=="Enter") return; const el=e.target.closest("input[data-cat-t]"); if(el){ e.preventDefault(); el.blur(); } const nw=e.target.closest("input[id^=catNew-]"); if(nw){ e.preventDefault(); document.querySelector(`[data-act=catAdd][data-type=${nw.id.split("-")[1]}]`).click(); } });
+  document.addEventListener("keydown",e=>{ if(e.key!=="Enter") return; if(e.target.id==="yearNew"){ e.preventDefault(); document.querySelector("[data-act=yearAdd]").click(); return; } const el=e.target.closest("input[data-cat-t]"); if(el){ e.preventDefault(); el.blur(); } const nw=e.target.closest("input[id^=catNew-]"); if(nw){ e.preventDefault(); document.querySelector(`[data-act=catAdd][data-type=${nw.id.split("-")[1]}]`).click(); } });
   document.addEventListener("change",async e=>{ const el=e.target.closest("input[data-hcyear]"); if(!el) return; const Y=el.dataset.hcyear; const v=Math.abs(parseFloat(String(el.value).replace(",","."))||0); state.settings.years=state.settings.years||{}; state.settings.years[Y]=Math.round(v*100)/100; await saveSettings(); toast(v?`Handicap ${Y} : ${fmt(v)}`:`${Y} repart de zéro`); });
   document.addEventListener("click",ev=>{
     const g=ev.target.closest("[data-goto]"); if(g){ state.view=g.dataset.goto; render(); return; }
@@ -1528,7 +1543,9 @@ function bind(){
     const act=a.dataset.act;
     if(act==="prev") shiftMonth(-1);
     if(act==="next") shiftMonth(1);
-    if(act==="addYear"){ const ys=yearList(); const Y=(ys.length?Math.max(...ys):now.getFullYear()-1)+1; state.settings.years=state.settings.years||{}; state.settings.years[Y]=0; saveSettings(); state.view="year"; state.year=Y; render(); }
+    if(act==="addYear"){ const ys=yearList(); const Y=(ys.length?Math.max(...ys):now.getFullYear()-1)+1; addYear(Y).then(()=>{ state.view="year"; state.year=Y; render(); }); }
+    if(act==="yearAdd"){ const v=$("#yearNew").value; addYear(v).then(ok=>{ if(ok){ $("#yearNew").value=""; render(); toast(`Récap ${parseInt(v)} ajouté`); } }); }
+    if(act==="yearDel") removeYear(+a.dataset.year);
     if(act==="new") openEntry();
     if(act==="etsy") openEtsy();
     if(act==="pick") $("#filePick").click();
