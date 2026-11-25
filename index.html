@@ -1090,8 +1090,124 @@ async function pdfText(file){
     }catch(e){ /* flux non lisible : on ignore */ }
     re.lastIndex=end+9;
   }
+  // PDF imprimé depuis le navigateur (lettres codées, table ToUnicode) : lecture lettre par lettre
+  if(!/[A-Za-zÀ-ÿ]{3}/.test(pieces.join(" ")) || /\/ToUnicode/.test(raw)&&!/[A-Za-zÀ-ÿ]{3}/.test(pieces.join(""))){
+    try{ const p2=await pdfText2(buf); if(p2&&p2.length) return p2; }catch(e){ console.warn(e); } }
   return pieces.length?pieces:null;
 }
+/* Lecture des PDF « imprimés » depuis un navigateur (Safari, Chrome) : polices CID avec table ToUnicode,
+   une lettre placée à la fois. On reconstitue les lignes à partir de la position de chaque lettre. */
+async function pdfText2(buf){
+  const raw=new TextDecoder("windows-1252").decode(buf);
+  const objs={}; const ore=/(\d+)\s+0\s+obj\b/g; let m;
+  while((m=ore.exec(raw))){
+    const st=m.index+m[0].length; const end=raw.indexOf("endobj",st); if(end<0) break;
+    const body=raw.slice(st,end); const si=body.search(/(?<!end)stream\r?\n/);
+    const o={dict: si>=0?body.slice(0,si):body};
+    if(si>=0){ const s0=st+si+body.slice(si).match(/stream\r?\n/)[0].length; const e0=raw.lastIndexOf("endstream",end);
+      const lm=o.dict.match(/\/Length\s+(\d+)(?!\s+\d+\s+R)/); o.s0=s0; o.s1=lm?Math.min(e0,s0+(+lm[1])):e0; }
+    objs[m[1]]=o; ore.lastIndex=end;
+  }
+  const cache={};
+  async function stream(n){ if(n in cache) return cache[n]; const o=objs[n]; if(!o||o.s0==null) return cache[n]="";
+    let b=buf.subarray(o.s0,o.s1); try{ if(/FlateDecode/.test(o.dict)) b=await inflate(b); }catch(e){ return cache[n]=""; }
+    return cache[n]=new TextDecoder("windows-1252").decode(b); }
+  // petits outils pour lire les dictionnaires
+  function balanced(s,i,open,close){ let d=0; for(let j=i;j<s.length;j++){ if(s.startsWith(open,j)){d++; j+=open.length-1;} else if(s.startsWith(close,j)){ d--; if(!d) return s.slice(i,j+close.length); j+=close.length-1; } } return s.slice(i); }
+  function get(d,key){ if(!d) return null; const re=new RegExp("/"+key+"(?![A-Za-z0-9])\\s*"); const mm=re.exec(d); if(!mm) return null; const i=mm.index+mm[0].length;
+    if(d.startsWith("<<",i)) return balanced(d,i,"<<",">>"); if(d[i]==="[") return balanced(d,i,"[","]");
+    const r=d.slice(i).match(/^(\d+)\s+0\s+R/); if(r) return r[0]; const t=d.slice(i).match(/^[^\s\/<>\[\]]+|^\/[^\s\/<>\[\]]+/); return t?t[0]:null; }
+  const refN=v=>{ const r=v&&String(v).match(/^\s*(\d+)\s+0\s+R/); return r?r[1]:null; };
+  const deref=v=>{ const n=refN(v); return n? (objs[n]?objs[n].dict:null) : v; };
+  async function derefFull(v){ const n=refN(v); if(!n) return v; const o=objs[n]; if(!o) return null; return o.s0!=null? await stream(n) : o.dict; }
+  const hexStr=h=>{ h=h.replace(/[^0-9a-f]/gi,""); if(h.length%2) h+="0"; let s=""; for(let i=0;i<h.length;i+=2) s+=String.fromCharCode(parseInt(h.substr(i,2),16)); return s; };
+  const fonts={};
+  async function font(ref){
+    const n=refN(ref)||ref; if(fonts[n]) return fonts[n];
+    const d=deref(ref)||""; const f={map:null,bytes:1,w:{},dw:1000,simple:!/Type0/.test(d)};
+    const tu=get(d,"ToUnicode");
+    if(tu){ const cm=await derefFull(tu)||""; f.map={};
+      const cs=cm.match(/begincodespacerange\s*<([0-9a-f]+)>/i); if(cs) f.bytes=cs[1].length/2;
+      for(const blk of cm.matchAll(/beginbfchar([\s\S]*?)endbfchar/g)) for(const x of blk[1].matchAll(/<([0-9a-f]+)>\s*<([0-9a-f]*)>/gi)) f.map[parseInt(x[1],16)]=u16(x[2]);
+      for(const blk of cm.matchAll(/beginbfrange([\s\S]*?)endbfrange/g)) for(const x of blk[1].matchAll(/<([0-9a-f]+)>\s*<([0-9a-f]+)>\s*(<[0-9a-f]*>|\[[^\]]*\])/gi)){
+        const a=parseInt(x[1],16), b=parseInt(x[2],16);
+        if(x[3][0]==="["){ const arr=[...x[3].matchAll(/<([0-9a-f]*)>/gi)].map(y=>u16(y[1])); for(let c=a;c<=b&&c-a<arr.length;c++) f.map[c]=arr[c-a]; }
+        else { const base=x[3].slice(1,-1); const pre=base.slice(0,-4), last=parseInt(base.slice(-4)||"0",16); for(let c=a;c<=b&&c-a<5000;c++) f.map[c]=u16(pre+(last+c-a).toString(16).padStart(4,"0")); } }
+    } else if(!f.simple) f.bytes=2;
+    if(f.simple){ const fc=+(get(d,"FirstChar")||0); const ws=await derefFull(get(d,"Widths"))||""; (ws.match(/-?[\d.]+/g)||[]).forEach((v,i)=>f.w[fc+i]=+v); f.dw=0; }
+    else { f.bytes=f.map?f.bytes:2; const df=get(d,"DescendantFonts"); const cd=deref((df&&df.match(/\d+\s+0\s+R/)||[])[0])||(df||"");
+      f.dw=+(get(cd,"DW")||1000); const W=await derefFull(get(cd,"W"))||"";
+      const tk=W.replace(/^\s*\[/,"").replace(/\]\s*$/,"").match(/\[[^\]]*\]|-?[\d.]+/g)||[];
+      for(let i=0;i<tk.length;){ const c=+tk[i]; if(tk[i+1]&&tk[i+1][0]==="["){ (tk[i+1].match(/-?[\d.]+/g)||[]).forEach((v,k)=>f.w[c+k]=+v); i+=2; } else { const c2=+tk[i+1], v=+tk[i+2]; for(let k=c;k<=c2&&k-c<5000;k++) f.w[k]=v; i+=3; } } }
+    return fonts[n]=f;
+  }
+  function u16(h){ let s=""; for(let i=0;i+3<h.length;i+=4) s+=String.fromCharCode(parseInt(h.substr(i,4),16)); if(h.length===2) s=String.fromCharCode(parseInt(h,16)); return s; }
+  const mul=(a,b)=>[a[0]*b[0]+a[1]*b[2],a[0]*b[1]+a[1]*b[3],a[2]*b[0]+a[3]*b[2],a[2]*b[1]+a[3]*b[3],a[4]*b[0]+a[5]*b[2]+b[4],a[4]*b[1]+a[5]*b[3]+b[5]];
+  const glyphs=[]; let page=0;
+  async function run(content,res,ctm0,depth){
+    if(depth>6) return;
+    const fontRes=deref(get(deref(res)||"","Font"))||""; const xoRes=deref(get(deref(res)||"","XObject"))||"";
+    let ctm=ctm0, stack=[], tm=[1,0,0,1,0,0], tlm=tm, f=null, size=1, Tc=0, Tw=0, Th=1, TL=0, rise=0; const ops=[];
+    const re=/\((?:\\[\s\S]|[^\\)])*\)|<[0-9a-fA-F\s]*>|\[|\]|\/[^\s\/<>\[\]()]+|-?\d*\.?\d+|[A-Za-z'"*]+|<<|>>/g; let t;
+    // les chaînes littérales imbriquées sont rares dans ces PDF ; on lit jeton par jeton
+    while((t=re.exec(content))){
+      const v=t[0];
+      if(v==="BI"){ const e=content.indexOf("EI",re.lastIndex); re.lastIndex=e<0?content.length:e+2; ops.length=0; continue; }
+      if(/^[A-Za-z'"*]+$/.test(v) && !["true","false","null"].includes(v)){
+        const op=v, a=ops.splice(0);
+        const nums=()=>a.filter(x=>typeof x==="number");
+        if(op==="q") stack.push(ctm); else if(op==="Q") ctm=stack.pop()||ctm0;
+        else if(op==="cm"){ const n=nums(); if(n.length>=6) ctm=mul(n.slice(-6),ctm); }
+        else if(op==="BT"){ tm=tlm=[1,0,0,1,0,0]; }
+        else if(op==="Tf"){ const nm=a.find(x=>typeof x==="string"&&x[0]==="/"); size=nums().pop()||1; const r=nm&&get(fontRes,nm.slice(1)); f=r?await font(r):null; }
+        else if(op==="Tm"){ const n=nums(); if(n.length>=6) tm=tlm=n.slice(-6); }
+        else if(op==="Td"||op==="TD"){ const n=nums(); tlm=mul([1,0,0,1,n[0]||0,n[1]||0],tlm); tm=tlm; if(op==="TD") TL=-(n[1]||0); }
+        else if(op==="T*"){ tlm=mul([1,0,0,1,0,-TL],tlm); tm=tlm; }
+        else if(op==="TL") TL=nums().pop()||0; else if(op==="Tc") Tc=nums().pop()||0; else if(op==="Tw") Tw=nums().pop()||0; else if(op==="Tz") Th=(nums().pop()??100)/100; else if(op==="Ts") rise=nums().pop()||0;
+        else if(op==="Tj"||op==="TJ"||op==="'"||op==='"'){
+          if(op!=="Tj"&&op!=="TJ"){ tlm=mul([1,0,0,1,0,-TL],tlm); tm=tlm; }
+          for(const x of a){ if(typeof x==="number"){ if(op==="TJ") tm=mul([1,0,0,1,-x/1000*size*Th,0],tm); continue; } if(x.kind!=="s") continue;
+            const s=x.v; const nb=f?f.bytes:1;
+            for(let i=0;i+nb<=s.length;i+=nb){ let code=0; for(let k=0;k<nb;k++) code=code*256+s.charCodeAt(i+k);
+              const ch=f&&f.map? (f.map[code]??"") : (nb===1? s[i] : "");
+              const w=f? (f.w[code]??f.dw) : 500;
+              const trm=mul([size*Th,0,0,size,0,rise],mul(tm,ctm));
+              const tx=(w/1000*size+Tc+(ch===" "&&nb===1?Tw:0))*Th; tm=mul([1,0,0,1,tx,0],tm);
+              const e=mul([size*Th,0,0,size,0,rise],mul(tm,ctm));
+              if(ch) glyphs.push({p:page,x0:trm[4],x1:e[4],y:trm[5],s:Math.hypot(trm[2],trm[3])||1,ch}); } } }
+        else if(op==="Do"){ const nm=a.find(x=>typeof x==="string"&&x[0]==="/"); const r=nm&&get(xoRes,nm.slice(1)); const n=refN(r);
+          if(n&&objs[n]&&/\/Subtype\s*\/Form/.test(objs[n].dict)){ const mt=get(objs[n].dict,"Matrix"); const mm2=mt?(mt.match(/-?[\d.]+/g)||[]).map(Number):[1,0,0,1,0,0];
+            await run(await stream(n), get(objs[n].dict,"Resources")||res, mul(mm2.length===6?mm2:[1,0,0,1,0,0],ctm), depth+1); } }
+        continue;
+      }
+      if(v[0]==="(") ops.push({kind:"s",v:unescLit(v.slice(1,-1))});
+      else if(v[0]==="<"&&v!=="<<") ops.push({kind:"s",v:hexStr(v.slice(1,-1))});
+      else if(v[0]==="/") ops.push(v);
+      else if(/^-?\d*\.?\d+$/.test(v)) ops.push(+v);
+    }
+  }
+  function unescLit(s){ return s.replace(/\\([nrtbf()\\]|[0-7]{1,3}|\r?\n)/g,(_,c)=>({n:"\n",r:"\r",t:"\t",b:"\b",f:"\f","(":"(",")":")","\\":"\\"}[c] ?? (/^[0-7]/.test(c)?String.fromCharCode(parseInt(c,8)):""))); }
+  // pages dans l'ordre
+  const cat=Object.values(objs).find(o=>/\/Type\s*\/Catalog/.test(o.dict)); const pages=[];
+  function walk(ref,inh,d0){ if(d0>20) return; const d=deref(ref)||""; const r=get(d,"Resources")||inh;
+    if(/\/Type\s*\/Pages/.test(d)){ for(const k of (get(d,"Kids")||"").matchAll(/(\d+)\s+0\s+R/g)) walk(k[0],r,d0+1); }
+    else if(/\/Type\s*\/Page\b/.test(d)) pages.push({d,r}); }
+  if(cat) walk(get(cat.dict,"Pages"),null,0);
+  for(const pg of pages){ const c=get(pg.d,"Contents")||""; let txt="";
+    for(const k of c.matchAll(/(\d+)\s+0\s+R/g)) txt+=(await stream(k[1]))+"\n";
+    await run(txt,pg.r,[1,0,0,1,0,0],0); page++; }
+  if(!glyphs.length) return null;
+  // on suit l'ordre de dessin (celui de la page web) : une nouvelle ligne ou un grand saut = un nouveau morceau
+  const out=[]; let cur="", prev=null;
+  for(const g of glyphs){
+    if(prev){ const s=Math.max(g.s,prev.s); const gap=g.x0-prev.x1;
+      if(g.p!==prev.p || Math.abs(g.y-prev.y)>0.45*s || gap>2.2*s || gap<-0.6*s){ if(cur.trim()) out.push(cur.trim()); cur=""; }
+      else if(gap>0.18*s && !/\s$/.test(cur) && g.ch!==" ") cur+=" "; }
+    cur+=g.ch; prev=g; }
+  if(cur.trim()) out.push(cur.trim());
+  return out.map(x=>x.replace(/\s+/g," ")).filter(Boolean);
+}
+
 const num=s=>parseFloat(String(s).replace(/\s| /g,"").replace(/,(\d{2})$/,".$1").replace(/,/g,""));
 async function readInvoice(file){
   const pieces=await pdfText(file); if(!pieces) return null;
@@ -1142,6 +1258,9 @@ function readPieces(pieces){
   // Page « Détails de la commande » Etsy imprimée en PDF (commande annulée ou remboursée sans bon de commande)
   const rc=flat.match(/Re[çc]u\s*#\s*(\d{8,})/i) || flat.match(/n\s?[^\d\s]?\s*(\d{8,})\s+via Etsy/i);
   if(!info.etsyOrder && rc && /total de la commande/i.test(flat)){
+    // la page imprimée contient aussi la liste des commandes derrière : on ne garde que le panneau de la commande
+    let st=pieces.findIndex(x=>/^\s*commande chez\s/i.test(x)); if(st<0) st=Math.max(0,pieces.findIndex(x=>/n\s?[^\d\s]?\s*\d{8,}\s+via Etsy/i.test(x))-1);
+    pieces=pieces.slice(Math.max(0,st)); const flat=pieces.join(" ").replace(/\s+/g," ");
     info.etsyOrder=rc[1]; info.orderPage=true;
     const dm=flat.match(/command[ée] le[^0-9]*(?:\d{1,2}:\d{2},?\s*)?(?:[a-zé]+\.?\s+)?(\d{1,2})\s+([a-zéûè]+)\.?\s+(20\d{2})/i);
     if(dm&&MONTH_ANY[dm[2].toLowerCase()]) info.date=`${dm[3]}-${pad(MONTH_ANY[dm[2].toLowerCase()])}-${pad(+dm[1])}`;
