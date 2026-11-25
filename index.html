@@ -513,7 +513,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
           <div id="fTvaWrap"><label for="fTva">TVA (%)</label><input type="number" id="fTva" step="0.1" min="0"></div>
           <div id="fVatWrap"><label for="fVat">dont TVA (facultatif)</label><div class="amount-in"><input type="number" id="fVat" step="0.01" min="0" placeholder="0,00" style="font-size:14px;font-weight:500"><span style="font-size:14px">€</span></div><div class="rates"><button type="button" data-rate="20">20 %</button><button type="button" data-rate="10">10 %</button><button type="button" data-rate="5.5">5,5 %</button></div></div>
         </div>
-        <div><label for="fLabel">Description</label><input type="text" id="fLabel" placeholder="ex. Commande Etsy #1042, cire de soja 10 kg…"></div>
+        <div><label for="fLabel">Description</label><input type="text" id="fLabel" placeholder="ex. Commande n° 1042, cire de soja 10 kg…"></div>
         <div><label for="fParty" id="fPartyLbl">Client / fournisseur</label><input type="text" id="fParty" placeholder="Facultatif"></div>
         <div><label for="fNote">Note</label><textarea id="fNote" rows="2" placeholder="Facultatif"></textarea></div>
         <div class="attach" id="fAttach"></div>
@@ -654,6 +654,7 @@ function monthSum(y,m){ return summarize(state.entries.filter(e=>inMonth(e,y,m))
   const s = await store.get("meta","settings").catch(()=>null);
   if(s) Object.assign(state.settings,s);
   state.entries = await store.all("entries").catch(()=>[]);
+  for(const e of state.entries){ const m=(e.label||"").match(/^Commande Etsy #(\d+)$/); if(m){ e.label=`Commande n° ${m[1]}`; if(e.type==="vente"&&!e.refund) e.etsyOrder=m[1]; await store.put("entries",e).catch(()=>{}); } }
   // anciennes versions : les factures étaient copiées dans l'app → on les efface, on garde le nom
   if(state.entries.some(e=>e.fileId)){ for(const e of state.entries){ if(e.fileId){ e.fileId=null; await store.put("entries",e); } } await store.clear("files").catch(()=>{}); }
   else store.clear("files").catch(()=>{});
@@ -1042,6 +1043,8 @@ async function pdfText(file){
   if(typeof DecompressionStream==="undefined") return null;
   const buf=new Uint8Array(await file.arrayBuffer());
   const raw=new TextDecoder("windows-1252").decode(buf);
+  // PDF créés sur Mac (Safari, Aperçu) : accents codés en Mac Roman
+  const enc=/MacRomanEncoding/.test(raw)&&!/WinAnsiEncoding/.test(raw)?"macintosh":"windows-1252";
   const pieces=[]; const re=/(?<!end)stream\r?\n/g; let m;
   while((m=re.exec(raw))){
     const start=m.index+m[0].length; const end=raw.indexOf("endstream",start); if(end<0) break;
@@ -1052,8 +1055,8 @@ async function pdfText(file){
       let txt;
       const dd=dict.slice(dict.lastIndexOf("<<"));
       if(/ASCII85Decode/.test(dd)) chunk=ascii85(chunk);
-      if(/FlateDecode/.test(dd)){ txt=new TextDecoder("windows-1252").decode(await inflate(chunk)); }
-      else if(/ASCII85Decode/.test(dd)) txt=new TextDecoder("windows-1252").decode(chunk);
+      if(/FlateDecode/.test(dd)){ txt=new TextDecoder(enc).decode(await inflate(chunk)); }
+      else if(/ASCII85Decode/.test(dd)) txt=new TextDecoder(enc).decode(chunk);
       else txt=raw.slice(start,end);
       if(/T[jJ]/.test(txt)) pieces.push(...pdfStrings(txt));
     }catch(e){ /* flux non lisible : on ignore */ }
@@ -1068,7 +1071,7 @@ async function readInvoice(file){
 }
 /* Un PDF peut contenir plusieurs bons de commande Etsy (impression groupée) : un par « Commande n° » */
 function splitOrders(pieces){
-  const idx=[]; pieces.forEach((x,i)=>{ if(/^\s*Commande n°\s*\d{6,}/i.test(x)) idx.push(i); });
+  const idx=[]; pieces.forEach((x,i)=>{ if(/^\s*Commande n\s?\S?\s*\d{6,}/i.test(x)) idx.push(i); });
   if(idx.length<2) return [pieces];
   return idx.map((st,k)=>pieces.slice(k?st:0, idx[k+1]??pieces.length));
 }
@@ -1099,7 +1102,7 @@ function readPieces(pieces){
   let m=flat.match(/\b(\d{2})[\/.-](\d{2})[\/.-](20\d{2})\b/); if(m && +m[2]<=12) info.date=`${m[3]}-${m[2]}-${m[1]}`;
   m=flat.match(/(?:tva|t\.v\.a\.?)[^0-9€]{0,25}(\d{1,2}(?:[.,]\d{1,2})?)\s*%/i); if(m) info.rate=num(m[1]);
   // Bon de commande Etsy (vente) : « Commande n°… », « Pays de destination », « Date de la commande », « Total de la commande »
-  const om=flat.match(/Commande n°\s*(\d{6,})/i);
+  const om=flat.match(/Commande n\s?\S?\s*(\d{6,})/i);
   if(om && /(etsy payments|lamaisondegabriel|pays de destination)/i.test(flat)){
     info.etsyOrder=om[1];
     const dm=flat.match(/date de la commande\s*:?\s*(\d{1,2})\s+([a-zéûè]+)\.?\s+(\d{4})/i);
@@ -1168,7 +1171,7 @@ function applyInvoice(info){
     setType("vente","Etsy");
     if(info.amount) $("#fAmount").value=info.amount.toFixed(2);
     if(info.date) $("#fDate").value=info.date;
-    $("#fLabel").value=`Commande Etsy #${info.etsyOrder}`;
+    $("#fLabel").value=`Commande n° ${info.etsyOrder}`;
     if(knownOrders().has(String(info.etsyOrder))){ const h=$("#mHint"); h.textContent=`⚠ La commande #${info.etsyOrder} est déjà enregistrée. Cliquez sur Annuler pour ne pas la compter deux fois.`; h.classList.remove("ok"); if(info.country){ modal.country=info.country.zone; modal.countryName=info.country.name; } syncCountry(); return; }
     if(info.customer && !$("#fParty").value) $("#fParty").value=info.customer;
     if(info.country){ modal.country=info.country.zone; modal.countryName=info.country.name; } syncCountry();
@@ -1444,7 +1447,7 @@ async function saveEntry(){
   const old=modal.editing;
   const e = old ? {...old} : {id:uid(),created:Date.now(),fileId:null,fileName:null};
   Object.assign(e,{type:modal.type,amount:Math.round(amount*100)/100,date,cat:$("#fCat").value,label:$("#fLabel").value.trim(),party:$("#fParty").value.trim(),note:$("#fNote").value.trim(),tva:parseFloat($("#fTva").value)||0,refund:$("#fRefund").checked,country:modal.type==="vente"?(modal.country||"FR"):undefined,countryName:modal.type==="vente"?(modal.countryName||"France"):undefined,autoliq:modal.type==="depense"&&state.settings.regime==="tva"&&$("#fAutoliq").checked,vatPaid:(modal.type==="depense"?Math.round((parseFloat(String($("#fVat").value).replace(",","."))||0)*100)/100:0)});
-  { const m=(e.label||"").match(/Commande Etsy #(\d+)/); if(m&&e.type==="vente"&&!e.refund) e.etsyOrder=m[1]; }
+  { const m=(e.label||"").match(/Commande (?:Etsy #|n°\s*)(\d+)/); if(m&&e.type==="vente"&&!e.refund) e.etsyOrder=m[1]; }
   if(e.vatPaid>e.amount){ $("#mHint").textContent="La TVA ne peut pas dépasser le montant."; return; }
   try{
     // l'app ne garde jamais de copie de la facture : seulement son nom, pour s'y retrouver
@@ -1505,7 +1508,7 @@ async function openFile(fid){
 const bulkLeft=new WeakSet();
 const bulk={running:false,files:[],done:0,total:0,saved:0,dup:0,abroad:{},left:[],months:new Set(),sum:0};
 const withTimeout=(p,ms)=>Promise.race([p,new Promise(r=>setTimeout(()=>r("__timeout"),ms))]);
-function knownOrders(){ const k=new Set(); state.entries.forEach(e=>{ if(e.etsyOrder) k.add(String(e.etsyOrder)); else { const m=(e.label||"").match(/Commande Etsy #(\d+)/); if(m&&!e.refund) k.add(m[1]); } }); return k; }
+function knownOrders(){ const k=new Set(); state.entries.forEach(e=>{ if(e.etsyOrder) k.add(String(e.etsyOrder)); else { const m=(e.label||"").match(/Commande (?:Etsy #|n°\s*)(\d+)/); if(m&&!e.refund) k.add(m[1]); } }); return k; }
 function bulkShow(final){
   const el=$("#bulk"); el.classList.remove("hidden");
   if(!final){ el.innerHTML=`<b>Lecture des bons de commande…</b>${bulk.done} / ${bulk.total} fichier${bulk.total>1?"s":""} · ${bulk.saved} commande${bulk.saved>1?"s":""} enregistrée${bulk.saved>1?"s":""}<div class="bar"><i style="width:${bulk.total?Math.round(bulk.done/bulk.total*100):0}%"></i></div><small>Vous pouvez continuer à travailler.</small>`; return; }
@@ -1532,7 +1535,7 @@ async function bulkImport(files){
       for(const o of good){
         if(known.has(String(o.etsyOrder))){ bulk.dup++; continue; }
         const c=o.country||{name:"France",zone:"FR"};
-        const e={id:uid(),created:Date.now(),fileId:null,fileName:f.name,type:"vente",amount:Math.round(o.amount*100)/100,date:o.date,cat:"Etsy",label:`Commande Etsy #${o.etsyOrder}`,etsyOrder:String(o.etsyOrder),party:o.customer||"",note:"",
+        const e={id:uid(),created:Date.now(),fileId:null,fileName:f.name,type:"vente",amount:Math.round(o.amount*100)/100,date:o.date,cat:"Etsy",label:`Commande n° ${o.etsyOrder}`,etsyOrder:String(o.etsyOrder),party:o.customer||"",note:"",
           tva:tvaMode?(c.zone==="HORS_UE"?0:state.settings.tvaDefault):0,refund:false,country:c.zone,countryName:c.name,autoliq:false,vatPaid:0};
         await store.put("entries",e); state.entries.push(e); known.add(e.etsyOrder);
         bulk.saved++; bulk.sum+=e.amount; bulk.months.add(e.date.slice(0,7)+"-01");
