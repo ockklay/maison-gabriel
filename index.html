@@ -274,6 +274,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;font-size:13.5px;opacity:0;transition:.25s;z-index:90;pointer-events:none}
 .toast.on{opacity:1;transform:translateX(-50%)}
+.dupbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fbecec;color:#8a2f3a;border:1px solid #f0c9cd;border-radius:12px;padding:10px 14px;margin:0 0 12px;font-size:13.5px}
+.dupbar .btn{margin-left:auto;padding:6px 12px;font-size:13px}
+.duptag{display:inline-block;background:#fbecec;color:#a33a47;border-radius:6px;padding:1px 7px;font-size:11.5px;font-weight:700;margin-right:4px}
 .bulk{position:fixed;bottom:22px;right:22px;width:380px;max-width:calc(100vw - 44px);background:#fff;border:1px solid var(--line2);border-radius:14px;box-shadow:0 12px 40px rgba(80,30,40,.18);padding:16px 18px;z-index:95;font-size:13.5px}
 .bulk b{display:block;font-size:14.5px;margin-bottom:4px} .bulk .bar{height:6px;background:var(--track);border-radius:3px;margin:10px 0 4px;overflow:hidden} .bulk .bar i{display:block;height:100%;background:var(--accent);transition:width .2s}
 .bulk ul{margin:8px 0 0;padding-left:18px;color:var(--ink2)} .bulk .x{position:absolute;top:8px;right:10px;border:0;background:none;font-size:18px;cursor:pointer;color:var(--ink2)}
@@ -715,12 +718,14 @@ function missingTxt(list){ const n=list.filter(e=>!e.fileName).length; return n?
 
 function tableHTML(list,withTotals){
   const tva = state.settings.regime==="tva";
-  let h = `<table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Catégorie</th><th>Facture</th><th class="amt">Montant${tva?" TTC":""}</th></tr></thead><tbody>`;
+  const dups=findDups(); const here=list.filter(e=>dups.has(e.id));
+  let h = here.length ? `<div class="dupbar"><span>⚠ <b>${here.length} doublon${here.length>1?"s":""}</b> : ${here.length>1?"ces opérations sont enregistrées":"cette opération est enregistrée"} deux fois (même n° de commande ou même facture).</span><button class="btn" data-act="delDups" data-ids="${here.map(e=>e.id).join(",")}">Supprimer ${here.length>1?"les doublons":"le doublon"}</button></div>` : "";
+  h += `<table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Catégorie</th><th>Facture</th><th class="amt">Montant${tva?" TTC":""}</th></tr></thead><tbody>`;
   for(const e of list){
     const d = e.date.split("-");
     h += `<tr class="click" data-id="${e.id}"><td class="num">${d[2]}/${d[1]}/${d[0]}</td>
       <td><span class="tag ${e.refund?"refund":e.type}">${typeLabel(e)}</span></td>
-      <td>${esc(e.label)||'<span class="muted">—</span>'}${e.type==="vente"&&e.country==="UE"?` <span class="refunded" style="background:#eef0fb;color:#3b4a8a">${esc(e.countryName&&!/^Autre/.test(e.countryName)?e.countryName:"UE")}</span>`:""}${e.type==="vente"&&e.country==="HORS_UE"?` <span class="refunded" style="background:#eef6f0;color:#2f6b45">${esc(e.countryName&&!/^Autre/.test(e.countryName)?e.countryName:"Hors UE")} · export</span>`:""}${e.party?`<div class="muted" style="font-size:12px">${esc(e.party)}</div>`:""}${(()=>{ const r=refundedOf(e.id); return r?`<span class="refunded">↩ ${r+0.005>=e.amount?"remboursé":"remboursé en partie"} · ${fmt(r)}</span>`:""; })()}</td>
+      <td>${dups.has(e.id)?'<span class="duptag">⚠ Doublon</span> ':''}${esc(e.label)||'<span class="muted">—</span>'}${e.type==="vente"&&e.country==="UE"?` <span class="refunded" style="background:#eef0fb;color:#3b4a8a">${esc(e.countryName&&!/^Autre/.test(e.countryName)?e.countryName:"UE")}</span>`:""}${e.type==="vente"&&e.country==="HORS_UE"?` <span class="refunded" style="background:#eef6f0;color:#2f6b45">${esc(e.countryName&&!/^Autre/.test(e.countryName)?e.countryName:"Hors UE")} · export</span>`:""}${e.party?`<div class="muted" style="font-size:12px">${esc(e.party)}</div>`:""}${(()=>{ const r=refundedOf(e.id); return r?`<span class="refunded">↩ ${r+0.005>=e.amount?"remboursé":"remboursé en partie"} · ${fmt(r)}</span>`:""; })()}</td>
       <td class="muted" style="font-size:13px">${esc(e.cat)}</td>
       <td>${e.fileName?`<span class="file-ic" title="${esc(e.fileName)}">📎 ${esc(trunc(e.fileName,18))}</span>`:`<span class="nofile">aucune</span>`}</td>
       <td class="amt num" style="color:${isIn(e)?"var(--sale-ink)":"var(--exp-ink)"}">${isIn(e)?"+":"−"} ${fmt(e.amount)}</td></tr>`;
@@ -728,6 +733,26 @@ function tableHTML(list,withTotals){
   h += `</tbody></table>`;
   if(withTotals){ const s=summarize(list); h+=`<div class="totals"><span>Ventes${tva?" HT":""} <b class="num">${fmt(s.sales)}</b></span><span>Dépenses${tva?" HT":""} <b class="num">${fmt(s.exp)}</b></span><span>Différence <b class="num">${fmt(s.gross)}</b></span></div>`; }
   return h;
+}
+/* Doublons : même numéro de commande Etsy, ou même fichier + même montant + même date */
+function orderOf(e){ if(e.type!=="vente"||e.refund||e.src) return null; if(e.etsyOrder) return String(e.etsyOrder); const m=(e.label||"").match(/Commande (?:Etsy #|n°\s*)(\d{6,})/); return m?m[1]:null; }
+function dupKeys(e){ const k=[]; const o=orderOf(e); if(o) k.push("o"+o); if(e.fileName&&!e.src&&!e.refund) k.push("f"+e.type+e.fileName+"|"+e.amount+"|"+e.date); return k; }
+function findDups(){
+  const first={}, dups=new Map();
+  for(const e of state.entries.slice().sort((a,b)=>(!!b.party-!!a.party)||((a.created||0)-(b.created||0)))){  // on garde la plus complète (avec le client), sinon la plus ancienne
+    let orig=null; for(const k of dupKeys(e)) if(first[k]&&first[k]!==e.id){ orig=first[k]; break; }
+    if(orig) dups.set(e.id,orig); else dupKeys(e).forEach(k=>first[k]=e.id);
+  }
+  return dups;
+}
+function findDupOf(e){ const ks=dupKeys(e); return state.entries.find(x=>x.id!==e.id && dupKeys(x).some(k=>ks.includes(k))); }
+async function deleteDups(ids){
+  const dates=new Set();
+  for(const id of ids){ const e=state.entries.find(x=>x.id===id); if(!e) continue;
+    for(const x of state.entries.filter(x=>x.linkedTo===id)){ await store.del("entries",x.id); dates.add(x.date); }
+    await store.del("entries",id); dates.add(e.date); state.entries=state.entries.filter(x=>x.id!==id&&x.linkedTo!==id); }
+  for(const d of dates) await reconcileEtsy(d);
+  await touch(); toast(`${ids.length} doublon${ids.length>1?"s":""} supprimé${ids.length>1?"s":""}`); render();
 }
 const trunc=(s,n)=>!s?"":s.length>n?s.slice(0,n-1)+"…":s;
 
@@ -1448,6 +1473,9 @@ async function saveEntry(){
   const e = old ? {...old} : {id:uid(),created:Date.now(),fileId:null,fileName:null};
   Object.assign(e,{type:modal.type,amount:Math.round(amount*100)/100,date,cat:$("#fCat").value,label:$("#fLabel").value.trim(),party:$("#fParty").value.trim(),note:$("#fNote").value.trim(),tva:parseFloat($("#fTva").value)||0,refund:$("#fRefund").checked,country:modal.type==="vente"?(modal.country||"FR"):undefined,countryName:modal.type==="vente"?(modal.countryName||"France"):undefined,autoliq:modal.type==="depense"&&state.settings.regime==="tva"&&$("#fAutoliq").checked,vatPaid:(modal.type==="depense"?Math.round((parseFloat(String($("#fVat").value).replace(",","."))||0)*100)/100:0)});
   { const m=(e.label||"").match(/Commande (?:Etsy #|n°\s*)(\d+)/); if(m&&e.type==="vente"&&!e.refund) e.etsyOrder=m[1]; }
+  if(!old){ const d=findDupOf(e); if(d){ const o=orderOf(e);
+    const ok=confirm(`${o?`La commande n° ${o}`:"Cette facture"} est déjà enregistrée (${d.date.split("-").reverse().join("/")}, ${fmt(d.amount)}).\n\nOK : l'enregistrer quand même\nAnnuler : ne pas l'enregistrer`);
+    if(!ok){ toast("Doublon non enregistré"); closeEntry(); return; } } }
   if(e.vatPaid>e.amount){ $("#mHint").textContent="La TVA ne peut pas dépasser le montant."; return; }
   try{
     // l'app ne garde jamais de copie de la facture : seulement son nom, pour s'y retrouver
@@ -2053,6 +2081,7 @@ function bind(){
     if(act==="finPdf"){ const {y,m}=finMonth(); printMonth(y,m); }
     if(act==="finXls"){ const {y,m}=finMonth(); exportMonthXlsx(y,m); }
     if(act==="finRecap"){ const {y,m}=finMonth(); state.view="month"; state.y=y; state.m=m; state.year=y; render(); }
+    if(act==="delDups"){ const ids=a.dataset.ids.split(","); if(confirm(`Supprimer ${ids.length>1?"ces "+ids.length+" doublons":"ce doublon"} ? L'opération d'origine est gardée.`)) deleteDups(ids); }
     if(act==="xlsOps") exportOpsXlsx();
     if(act==="xlsYear") exportYearXlsx(state.year);
     if(act==="pdfYear") printYear(state.year);
