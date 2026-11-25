@@ -501,6 +501,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
           </div>
         </div>
         <label class="chk hidden" id="fRefundWrap"><input type="checkbox" id="fRefund"><span id="fRefundTxt"></span></label>
+        <label class="chk hidden" id="fCancelWrap"><input type="checkbox" id="fCancel"><span>Commande annulée : l'acheteur a été remboursé en totalité<small>La vente et son remboursement sont enregistrés ensemble. Ça fait 0 € de ventes, mais la commande reste visible et colle au relevé Etsy.</small></span></label>
         <div id="fCountryWrap" class="hidden">
           <label>Pays du client</label>
           <div class="seg" id="fCountry"><button type="button" data-c="FR" class="on">France</button><button type="button" data-c="UE">Autre pays de l'UE</button><button type="button" data-c="HORS_UE">Hors UE (exportation)</button></div>
@@ -920,7 +921,7 @@ function openEntry({file=null,entry=null}={}){
   $("#fTva").value = e.tva ?? state.settings.tvaDefault;
   $("#fTvaWrap").classList.toggle("hidden",state.settings.regime!=="tva");
   $("#fVat").value = e.vatPaid || "";
-  $("#fRefund").checked = !!e.refund; $("#fAutoliq").checked = !!e.autoliq; modal.country = e.country || "FR"; modal.countryName = e.countryName || null; syncAutoliq();
+  $("#fRefund").checked = !!e.refund; $("#fCancel").checked=false; $("#fAutoliq").checked = !!e.autoliq; modal.country = e.country || "FR"; modal.countryName = e.countryName || null; syncAutoliq();
   $("#fAmountLbl").textContent = state.settings.regime==="tva" ? "Montant TTC" : "Montant";
   setType(e.type,e.cat);
   $("#mDelete").classList.toggle("hidden",!entry);
@@ -936,6 +937,7 @@ function openEntry({file=null,entry=null}={}){
   $("#mEntry").classList.add("on");
   setTimeout(()=>{ if($("#mEntry").contains(document.activeElement)) return; (e.type? $("#fAmount") : document.querySelector(".typepick button")).focus(); },50);
 }
+function syncCancel(){ const c=$("#fCancel").checked; if(c) $("#fRefund").checked=false; $("#fRefundWrap").classList.toggle("hidden", c || !modal.type || !!(modal.editing && !modal.editing.refund)); }
 function defaultDate(){ const t=new Date(); return (t.getFullYear()===state.y&&t.getMonth()===state.m) ? todayISO() : `${state.y}-${pad(state.m+1)}-01`; }
 
 async function showPreview(){
@@ -998,6 +1000,7 @@ function setType(t,cat){
   $("#fRefundWrap").classList.toggle("hidden",!t || !!(modal.editing && !modal.editing.refund));
   $("#fRefundTxt").innerHTML = t==="vente" ? `C'est un remboursement à un client<small>Le montant sera déduit de vos ventes.</small>` : `C'est un remboursement reçu d'un fournisseur (retour, avoir)<small>Le montant sera déduit de vos dépenses.</small>`;
   $("#fAutoliqWrap").classList.toggle("hidden",!(t==="depense"&&state.settings.regime==="tva"));
+  $("#fCancelWrap").classList.toggle("hidden",!(t==="vente"&&!modal.editing)); if(t!=="vente") $("#fCancel").checked=false; syncCancel();
   syncAutoliq();
   $("#fCountryWrap").classList.toggle("hidden",t!=="vente");
   if(t==="vente" && modal.detected && !modal.editing){ modal.country=modal.detected.zone; modal.countryName=modal.detected.name; }
@@ -1096,7 +1099,7 @@ async function readInvoice(file){
 }
 /* Un PDF peut contenir plusieurs bons de commande Etsy (impression groupée) : un par « Commande n° » */
 function splitOrders(pieces){
-  const idx=[]; pieces.forEach((x,i)=>{ if(/^\s*Commande n\s?\S?\s*\d{6,}/i.test(x)) idx.push(i); });
+  const idx=[]; pieces.forEach((x,i)=>{ if(/^\s*Commande n\s?[^\d\s]?\s*\d{6,}/i.test(x)) idx.push(i); });
   if(idx.length<2) return [pieces];
   return idx.map((st,k)=>pieces.slice(k?st:0, idx[k+1]??pieces.length));
 }
@@ -1127,7 +1130,7 @@ function readPieces(pieces){
   let m=flat.match(/\b(\d{2})[\/.-](\d{2})[\/.-](20\d{2})\b/); if(m && +m[2]<=12) info.date=`${m[3]}-${m[2]}-${m[1]}`;
   m=flat.match(/(?:tva|t\.v\.a\.?)[^0-9€]{0,25}(\d{1,2}(?:[.,]\d{1,2})?)\s*%/i); if(m) info.rate=num(m[1]);
   // Bon de commande Etsy (vente) : « Commande n°… », « Pays de destination », « Date de la commande », « Total de la commande »
-  const om=flat.match(/Commande n\s?\S?\s*(\d{6,})/i);
+  const om=flat.match(/Commande n\s?[^\d\s]?\s*(\d{6,})/i);
   if(om && /(etsy payments|lamaisondegabriel|pays de destination)/i.test(flat)){
     info.etsyOrder=om[1];
     const dm=flat.match(/date de la commande\s*:?\s*(\d{1,2})\s+([a-zéûè]+)\.?\s+(\d{4})/i);
@@ -1136,8 +1139,30 @@ function readPieces(pieces){
     const pi=pieces.findIndex(x=>/pays de destination/i.test(x));
     if(pi>=0){ const seg=pieces.slice(pi+1,pi+8).join(" "); info.country=detectCountry(seg); info.customer=(pieces[pi+1]||"").trim(); }
   }
+  // Page « Détails de la commande » Etsy imprimée en PDF (commande annulée ou remboursée sans bon de commande)
+  const rc=flat.match(/Re[çc]u\s*#\s*(\d{8,})/i) || flat.match(/n\s?[^\d\s]?\s*(\d{8,})\s+via Etsy/i);
+  if(!info.etsyOrder && rc && /total de la commande/i.test(flat)){
+    info.etsyOrder=rc[1]; info.orderPage=true;
+    const dm=flat.match(/command[ée] le[^0-9]*(?:\d{1,2}:\d{2},?\s*)?(?:[a-zé]+\.?\s+)?(\d{1,2})\s+([a-zéûè]+)\.?\s+(20\d{2})/i);
+    if(dm&&MONTH_ANY[dm[2].toLowerCase()]) info.date=`${dm[3]}-${pad(MONTH_ANY[dm[2].toLowerCase()])}-${pad(+dm[1])}`;
+    const tm=flat.match(/total de la commande\s*(\d[\d .,  ]*?[.,]\d{2})/i); if(tm) info.amount=num(tm[1]);
+    const rm=flat.match(/rembours[ée]\s*-\s*(\d[\d .,  ]*?[.,]\d{2})/i); const refunded=rm?num(rm[1]):0;
+    if(/totalement rembours/i.test(flat) || (info.amount && refunded+0.005>=info.amount)) info.cancelled=true;
+    else if(refunded>0) info.refunded=refunded;
+    const pd=flat.match(/pays de destination\s+([^,]{2,60}),\s*([A-Za-zÀ-ÿ' -]{3,40}?)(?=\s+\d|\s+[A-Z][a-z]+\s+[A-Z]|$)/);
+    info.country=detectCountry(pd?pd[2]:flat);
+    const pi=pieces.findIndex((x,i)=>i>0&&/^\s*pays de destination\s*$/i.test(x)); if(pi>=0) info.customer=(pieces[pi+1]||"").trim();
+  }
+  // Page « Bénéfices » d'une commande Etsy annulée (imprimée en PDF)
+  if(!info.etsyOrder && /annul[ée]e/i.test(flat) && /l.acheteur a pay[ée]/i.test(flat)){
+    info.cancelled=true;
+    const pm=flat.match(/l.acheteur a pay[ée]\s*[^\d\s]?\s*(\d[\d .,  ]*?[.,]\d{2})/i); if(pm) info.amount=num(pm[1]);
+    const cm=flat.match(/commande chez\s+(.+?)\s+annul/i); if(cm) info.customer=cm[1].trim();
+    const on=flat.match(/(?:commande|order)\s*n?\s?[^\d\s]?\s*#?\s*(\d{8,})/i); if(on) info.etsyOrder=on[1];
+    const dm=flat.match(/(\d{1,2})\s+([a-zéûè]+)\.?\s+(20\d{2})/i); if(dm&&MONTH_ANY[dm[2].toLowerCase()]) info.date=`${dm[3]}-${pad(MONTH_ANY[dm[2].toLowerCase()])}-${pad(+dm[1])}`;
+  }
   if(!info.country) info.country=detectCountry(flat);
-  return (info.amount||info.date||info.country)?info:null;
+  return (info.amount||info.date||info.country||info.cancelled)?info:null;
 }
 /* Pays du client lu dans le texte de la facture (adresse de livraison / de facturation) */
 const COUNTRIES=[
@@ -1192,6 +1217,16 @@ function applyInvoice(info){
   if(info.date) $("#fDate").value=info.date;
   if(info.rate!=null && state.settings.regime==="tva") $("#fTva").value=info.rate;
   modal.detected=info.country||null;
+  if(info.cancelled){
+    setType("vente","Etsy"); $("#fCancel").checked=true; syncCancel();
+    if(info.amount) $("#fAmount").value=info.amount.toFixed(2);
+    if(info.date) $("#fDate").value=info.date;
+    $("#fLabel").value=info.etsyOrder?`Commande n° ${info.etsyOrder}`:`Commande annulée${info.customer?" – "+info.customer:""}`;
+    if(info.customer) $("#fParty").value=info.customer;
+    if(info.country){ modal.country=info.country.zone; modal.countryName=info.country.name; } syncCountry();
+    const h=$("#mHint"); h.textContent=`✓ Commande annulée reconnue${info.country?` (${info.country.name})`:""} : ${info.amount?fmt(info.amount)+" payés puis remboursés en totalité. ":""}${info.date?"Vérifiez":"Indiquez la date de la commande"} puis enregistrez.`; h.classList.add("ok");
+    return;
+  }
   if(info.etsyOrder){
     setType("vente","Etsy");
     if(info.amount) $("#fAmount").value=info.amount.toFixed(2);
@@ -1200,7 +1235,7 @@ function applyInvoice(info){
     if(knownOrders().has(String(info.etsyOrder))){ const h=$("#mHint"); h.textContent=`⚠ La commande #${info.etsyOrder} est déjà enregistrée. Cliquez sur Annuler pour ne pas la compter deux fois.`; h.classList.remove("ok"); if(info.country){ modal.country=info.country.zone; modal.countryName=info.country.name; } syncCountry(); return; }
     if(info.customer && !$("#fParty").value) $("#fParty").value=info.customer;
     if(info.country){ modal.country=info.country.zone; modal.countryName=info.country.name; } syncCountry();
-    const h=$("#mHint"); h.textContent=`✓ Commande Etsy reconnue : montant, date et pays du client (${info.country?info.country.name:"non trouvé"}) remplis. Vérifiez puis enregistrez.`; h.classList.add("ok");
+    const h=$("#mHint"); h.textContent=`✓ Commande Etsy reconnue : montant, date et pays du client (${info.country?info.country.name:"non trouvé"}) remplis. ${info.refunded?`Remboursement partiel de ${fmt(info.refunded)} : après l'enregistrement, rouvrez la vente et cliquez « ↩ Remboursé ? ». `:""}Vérifiez puis enregistrez.`; h.classList.add("ok");
     return;
   }
   if(info.country && modal.type==="vente"){ modal.country=info.country.zone; modal.countryName=info.country.name; syncCountry(); }
@@ -1454,6 +1489,7 @@ async function openFileFlow(file){
   if(info && info.etsyOrder && !bulkLeft.has(file)){ try{ const pc=await pdfText(file); if(pc && splitOrders(pc).length>1) return bulkImport([file]); }catch(e){} }
   openEntry({file});
   if(info) applyInvoice(info);
+  else if(/^image\//.test(file.type)){ const h=$("#mHint"); h.textContent="Capture d'écran : l'app ne lit pas le texte des images, remplissez le montant et la date. Commande annulée ? Choisissez « Une vente » puis cochez « Commande annulée »."; }
 }
 
 function closeEntry(){
@@ -1485,6 +1521,9 @@ async function saveEntry(){
     await store.put("entries",e);
   }catch(err){ console.error(err); $("#mHint").textContent="Erreur d'enregistrement : "+err.message; return; }
   const i=state.entries.findIndex(x=>x.id===e.id); if(i>=0) state.entries[i]=e; else state.entries.push(e);
+  if(!old && e.type==="vente" && !e.refund && $("#fCancel").checked){
+    const r={id:uid(),created:Date.now()+1,type:"vente",refund:true,linkedTo:e.id,country:e.country,countryName:e.countryName,amount:e.amount,date:e.date,cat:e.cat,party:e.party,tva:e.tva,autoliq:false,vatPaid:0,label:`Annulation – ${e.label||e.cat}`,note:"Commande annulée, remboursée en totalité",fileId:null,fileName:null};
+    await store.put("entries",r); state.entries.push(r); }
   if(old && old.src==="etsy-releve") syncEtsyTotal(e,e.amount);
   await reconcileEtsy(e.date); if(old && old.date!==e.date) await reconcileEtsy(old.date);
   await touch();
@@ -1558,6 +1597,7 @@ async function bulkImport(files){
       const first=readPieces(pieces);
       if(first&&first.etsy){ bulk.left.push(f); continue; }   // facture TVA Etsy → « Mon mois Etsy »
       const orders=splitOrders(pieces).map(readPieces).filter(o=>o&&o.etsyOrder);
+      if(orders.some(o=>o.cancelled||o.refunded||o.orderPage)){ bulk.left.push(f); continue; }   // commande annulée / remboursée : on la vérifie à la main
       const good=orders.filter(o=>o.amount>0&&o.date);
       if(!good.length||good.length<orders.length&&orders.length===1){ bulk.left.push(f); continue; }
       for(const o of good){
@@ -2104,6 +2144,7 @@ function bind(){
   $$(".typepick button").forEach(b=>b.onclick=()=>{ setType(b.dataset.type); $("#fAmount").focus(); });
   $$("#fCountry button").forEach(b=>b.onclick=()=>{ const z=b.dataset.c; modal.country=z; modal.countryName = (modal.detected&&modal.detected.zone===z) ? modal.detected.name : (z==="UE"?"Autre pays de l'UE":z==="HORS_UE"?"Autre pays hors UE":"France"); syncCountry(); });
   $("#fDate").addEventListener("change",()=>{ if(modal.type==="vente") syncCountry(); });
+  $("#fCancel").onchange=syncCancel;
   $("#fAutoliq").onchange=()=>{ if(!$("#fAutoliq").checked) $("#fTva").value=state.settings.tvaDefault; syncAutoliq(); };
   $("#fCat").onchange=async()=>{
     const sel=$("#fCat");
