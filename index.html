@@ -85,6 +85,14 @@ aside{width:220px;flex:none;background:var(--side) radial-gradient(90% 40% at 50
   #printArea .r{text-align:right;white-space:nowrap}
   #printArea tr.t td{font-weight:700;border-top:1.5px solid #DFC7BE;background:#FCF3F5}
   #printArea .foot{margin-top:18px;font-size:8.5pt;color:#8A797D}
+  #printArea .lead{font-size:10pt;color:#4a3f42;margin:0 0 8px}
+  #printArea .box{border:1px solid #EBDADD;background:#FCF3F5;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:9.5pt}
+  #printArea .warn{border-color:#efc9b9;background:#fdf3ee}
+  #printArea h2{break-after:avoid}
+  #printArea .newpage{break-before:page;page-break-before:always}
+  #printArea h1.sec{font-family:var(--title);font-weight:300;font-size:18pt;margin:0 0 10px;border-bottom:2px solid #F8D1D3;padding-bottom:6px}
+  #printArea ul{margin:4px 0 0 18px;padding:0;font-size:9.5pt}
+  #printArea td.n{color:#8A797D;font-size:8.5pt}
   #printArea tr{break-inside:avoid}
 }
 .startbox{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 18px;margin-bottom:14px}
@@ -295,7 +303,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
       </header>
       <div class="drop" data-act="pick">
         <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
-        <div><b>Glissez vos factures ici</b><span>PDF, photos ou captures, n'importe où dans la fenêtre. Factures de vente, d'achat… et en fin de mois la facture TVA Etsy, qui ouvre votre bilan du mois. Pas de facture ? « ＋ Ajouter ».</span></div>
+        <div><b>Glissez vos factures ici</b><span>PDF, photos ou captures, n'importe où dans la fenêtre. Factures de vente, d'achat… et en fin de mois la facture TVA Etsy et le relevé CSV Etsy, qui ouvrent votre bilan du mois. Pas de facture ? « ＋ Ajouter ».</span></div>
       </div>
       <div class="kpis" id="kpis"></div>
       <div class="grid2">
@@ -462,6 +470,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
           </div>
         </div>
         <label class="chk hidden" id="fRefundWrap"><input type="checkbox" id="fRefund"><span id="fRefundTxt"></span></label>
+        <div id="fCountryWrap" class="hidden">
+          <label>Pays du client</label>
+          <div class="seg" id="fCountry"><button type="button" data-c="FR" class="on">France</button><button type="button" data-c="UE">Autre pays de l'UE</button><button type="button" data-c="HORS_UE">Hors UE (exportation)</button></div>
+          <div class="hint" id="fCountryHint" style="margin-top:6px"></div>
+        </div>
         <label class="chk hidden" id="fAutoliqWrap"><input type="checkbox" id="fAutoliq"><span>Facture sans TVA, en autoliquidation (ex. Etsy)<small>Fournisseur européen : la TVA est à déclarer et à déduire par vous, sans effet sur ce que vous payez.</small></span></label>
         <div class="two">
           <div><label for="fAmount" id="fAmountLbl">Montant</label><div class="amount-in"><input type="number" id="fAmount" step="0.01" min="0" placeholder="0,00"><span>€</span></div></div>
@@ -505,7 +518,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
       <div class="two"><div><label for="eMonth">Mois</label><select id="eMonth"></select></div><div><label for="eYear">Année</label><select id="eYear"></select></div></div>
 
       <div class="etsy-sec">1 · Frais Etsy</div>
-      <div class="etsy-drop" id="eDrop"><span class="ic">📄</span><span id="eDropTxt">Glissez ici la <b>facture TVA Etsy</b> du mois (PDF), ou cliquez pour la choisir.</span></div>
+      <div class="etsy-drop" id="eDrop"><span class="ic">📄</span><span id="eDropTxt">Glissez ici la <b>facture TVA Etsy</b> (PDF) et le <b>relevé CSV Etsy</b> du mois, ou cliquez pour les choisir.</span></div>
       <div class="two">
         <div><label for="eFees">Total des frais Etsy</label><div class="amount-in"><input type="number" id="eFees" step="0.01" min="0" placeholder="0,00"><span>€</span></div></div>
         <div style="display:flex;align-items:flex-end"><span class="hint" id="eFeesHint">Rempli automatiquement depuis la facture.</span></div>
@@ -526,9 +539,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
     <div class="modal-f"><span class="hint" id="eHint"></span><div class="spacer"></div><button class="btn" id="eCancel">Annuler</button><button class="btn primary" id="eSave">Enregistrer le mois</button></div>
   </div>
 </div>
-<input type="file" id="etsyPick" accept=".pdf,application/pdf" class="hidden">
+<input type="file" id="etsyPick" accept=".pdf,application/pdf,.csv,text/csv" class="hidden">
 
-<input type="file" id="filePick" multiple accept=".pdf,image/*,.heic,.png,.jpg,.jpeg" class="hidden">
+<input type="file" id="filePick" multiple accept=".pdf,image/*,.heic,.png,.jpg,.jpeg,.csv,text/csv" class="hidden">
 <input type="file" id="attachPick" accept=".pdf,image/*,.heic,.png,.jpg,.jpeg" class="hidden">
 <input type="file" id="restorePick" accept=".json,application/json" class="hidden">
 <div class="toast" id="toast"></div>
@@ -600,9 +613,9 @@ function sgn(e){ return e.refund ? -1 : 1; }
 function typeLabel(e){ return e.type==="vente" ? (e.refund?"Remboursement":"Vente") : (e.refund?"Remb. fournisseur":"Dépense"); }
 function refundedOf(id){ return state.entries.filter(r=>r.linkedTo===id).reduce((a,r)=>a+r.amount,0); }
 function summarize(list){
-  let sales=0,exp=0,tvaC=0,tvaD=0,vatPaid=0,autoliq=0;
-  for(const e of list){ if(e.type==="vente"){ sales+=sgn(e)*ht(e); tvaC+=sgn(e)*tvaOf(e);} else { const g=sgn(e); exp+=g*ht(e); tvaD+=g*tvaOf(e); vatPaid+=g*(state.settings.regime==="tva"?tvaOf(e):(+e.vatPaid||0)); if(e.autoliq) autoliq+=g*e.amount;} }
-  return {sales,exp,gross:sales-exp,net:sales-exp,margin:sales?(sales-exp)/sales*100:null,tvaC,tvaD,tvaDue:tvaC-tvaD,vatPaid,autoliq,n:list.length};
+  let sales=0,exp=0,tvaC=0,tvaD=0,vatPaid=0,autoliq=0,ueHT=0,exportHT=0;
+  for(const e of list){ if(e.type==="vente"){ sales+=sgn(e)*ht(e); tvaC+=sgn(e)*tvaOf(e); if(e.country==="UE") ueHT+=sgn(e)*ht(e); if(e.country==="HORS_UE") exportHT+=sgn(e)*ht(e);} else { const g=sgn(e); exp+=g*ht(e); tvaD+=g*tvaOf(e); vatPaid+=g*(state.settings.regime==="tva"?tvaOf(e):(+e.vatPaid||0)); if(e.autoliq) autoliq+=g*e.amount;} }
+  return {sales,exp,gross:sales-exp,net:sales-exp,margin:sales?(sales-exp)/sales*100:null,tvaC,tvaD,tvaDue:tvaC-tvaD,vatPaid,autoliq,ueHT,exportHT,n:list.length};
 }
 function monthSum(y,m){ return summarize(state.entries.filter(e=>inMonth(e,y,m))); }
 
@@ -676,7 +689,7 @@ function tableHTML(list,withTotals){
     const d = e.date.split("-");
     h += `<tr class="click" data-id="${e.id}"><td class="num">${d[2]}/${d[1]}/${d[0]}</td>
       <td><span class="tag ${e.refund?"refund":e.type}">${typeLabel(e)}</span></td>
-      <td>${esc(e.label)||'<span class="muted">—</span>'}${e.party?`<div class="muted" style="font-size:12px">${esc(e.party)}</div>`:""}${(()=>{ const r=refundedOf(e.id); return r?`<span class="refunded">↩ ${r+0.005>=e.amount?"remboursé":"remboursé en partie"} · ${fmt(r)}</span>`:""; })()}</td>
+      <td>${esc(e.label)||'<span class="muted">—</span>'}${e.type==="vente"&&e.country==="UE"?` <span class="refunded" style="background:#eef0fb;color:#3b4a8a">${esc(e.countryName&&!/^Autre/.test(e.countryName)?e.countryName:"UE")}</span>`:""}${e.type==="vente"&&e.country==="HORS_UE"?` <span class="refunded" style="background:#eef6f0;color:#2f6b45">${esc(e.countryName&&!/^Autre/.test(e.countryName)?e.countryName:"Hors UE")} · export</span>`:""}${e.party?`<div class="muted" style="font-size:12px">${esc(e.party)}</div>`:""}${(()=>{ const r=refundedOf(e.id); return r?`<span class="refunded">↩ ${r+0.005>=e.amount?"remboursé":"remboursé en partie"} · ${fmt(r)}</span>`:""; })()}</td>
       <td class="muted" style="font-size:13px">${esc(e.cat)}</td>
       <td>${e.fileName?`<span class="file-ic" title="${esc(e.fileName)}">📎 ${esc(trunc(e.fileName,18))}</span>`:`<span class="nofile">aucune</span>`}</td>
       <td class="amt num" style="color:${isIn(e)?"var(--sale-ink)":"var(--exp-ink)"}">${isIn(e)?"+":"−"} ${fmt(e.amount)}</td></tr>`;
@@ -788,7 +801,7 @@ function renderYear(){
   const ys=summarize(state.entries.filter(e=>+e.date.slice(0,4)===Y));
   const end=start+ys.net;
   $("#ykpis").innerHTML=`
-    <div class="kpi"><div class="l"><span class="dot" style="background:var(--sale)"></span>Ventes ${Y}${tva?" HT":""}</div><div class="v num">${fmt(ys.sales)}</div>${tva?`<div class="d">TVA à reverser : <b>${fmt(ys.tvaDue)}</b></div>`:""}</div>
+    <div class="kpi"><div class="l"><span class="dot" style="background:var(--sale)"></span>Ventes ${Y}${tva?" HT":""}</div><div class="v num">${fmt(ys.sales)}</div>${tva?`<div class="d">TVA à reverser : <b>${fmt(ys.tvaDue)}</b></div>`:""}${ys.ueHT||ys.exportHT?`<div class="d">${ys.ueHT?`dont UE hors France : <b>${fmt(ys.ueHT)}</b> / seuil ${fmt(OSS_LIMIT)}${ys.ueHT>=OSS_LIMIT?' <span class="down">⚠ seuil dépassé : OSS</span>':ys.ueHT>=0.8*OSS_LIMIT?' <span class="down">⚠ proche du seuil</span>':""}`:""}${ys.ueHT&&ys.exportHT?"<br>":""}${ys.exportHT?`dont exportations hors UE : <b>${fmt(ys.exportHT)}</b>`:""}</div>`:""}</div>
     <div class="kpi"><div class="l"><span class="dot" style="background:var(--exp)"></span>Dépenses ${Y}${tva?" HT":""}</div><div class="v num">${fmt(ys.exp)}</div>${!tva&&ys.vatPaid?`<div class="d">dont TVA payée : <b>${fmt(ys.vatPaid)}</b></div>`:""}</div>
     <div class="kpi"><div class="l">Bénéfice ${Y}</div><div class="v num" style="color:${ys.net<0?"var(--bad)":"inherit"}">${fmt(ys.net)}</div><div class="d">marge ${ys.margin==null?"—":ys.margin.toFixed(0)+" %"}</div></div>
     <div class="kpi hero"><div class="l">Trésorerie fin ${Y}</div><div class="v num">${fmt(end)}</div><div class="d">${hc?`départ ${fmt(start)} + bénéfice ${fmt(ys.net)}`:"bénéfice de l'année"}${hc?`<br>${end>=0?'<span class="up">✓ handicap rattrapé</span>':`encore <b>${fmt(-end)}</b> à rattraper`}`:""}</div></div>`;
@@ -842,7 +855,7 @@ function guessFromName(name){
 }
 
 function openEntry({file=null,entry=null}={}){
-  modal.editing=entry; modal.file=file; modal.removeFile=false;
+  modal.editing=entry; modal.file=file; modal.removeFile=false; modal.detected=null; modal.countryName=null;
   if(modal.url){ URL.revokeObjectURL(modal.url); modal.url=null; }
   const g = file ? guessFromName(file.name) : {};
   const e = entry || {type:null,amount:g.amount??"",date:g.date||defaultDate(),cat:"",label:g.label||"",party:"",note:"",tva:state.settings.tvaDefault};
@@ -853,7 +866,7 @@ function openEntry({file=null,entry=null}={}){
   $("#fTva").value = e.tva ?? state.settings.tvaDefault;
   $("#fTvaWrap").classList.toggle("hidden",state.settings.regime!=="tva");
   $("#fVat").value = e.vatPaid || "";
-  $("#fRefund").checked = !!e.refund; $("#fAutoliq").checked = !!e.autoliq; syncAutoliq();
+  $("#fRefund").checked = !!e.refund; $("#fAutoliq").checked = !!e.autoliq; modal.country = e.country || "FR"; modal.countryName = e.countryName || null; syncAutoliq();
   $("#fAmountLbl").textContent = state.settings.regime==="tva" ? "Montant TTC" : "Montant";
   setType(e.type,e.cat);
   $("#mDelete").classList.toggle("hidden",!entry);
@@ -932,7 +945,36 @@ function setType(t,cat){
   $("#fRefundTxt").innerHTML = t==="vente" ? `C'est un remboursement à un client<small>Le montant sera déduit de vos ventes.</small>` : `C'est un remboursement reçu d'un fournisseur (retour, avoir)<small>Le montant sera déduit de vos dépenses.</small>`;
   $("#fAutoliqWrap").classList.toggle("hidden",!(t==="depense"&&state.settings.regime==="tva"));
   syncAutoliq();
+  $("#fCountryWrap").classList.toggle("hidden",t!=="vente");
+  if(t==="vente" && modal.detected && !modal.editing){ modal.country=modal.detected.zone; modal.countryName=modal.detected.name; }
+  syncCountry();
   $("#fPartyLbl").textContent = t==="vente" ? "Client" : t==="depense" ? "Fournisseur" : "Client / fournisseur";
+}
+/* ventes à distance UE : TVA française 20 % sous 10 000 €/an (toute l'UE cumulée), OSS au-delà */
+const OSS_LIMIT=10000;
+function ueYear(y){ return summarize(state.entries.filter(e=>e.date&&+e.date.slice(0,4)===y)).ueHT; }
+const ZONE_OF=n=>{ const f=COUNTRIES.find(x=>x[0]===n); return f?f[1]:(n==="Autre pays hors UE"?"HORS_UE":n==="Autre pays de l'UE"?"UE":"FR"); };
+function countryOptions(){
+  const ue=COUNTRIES.filter(x=>x[1]==="UE").map(x=>x[0]).sort((a,b)=>a.localeCompare(b,"fr"));
+  const hu=COUNTRIES.filter(x=>x[1]==="HORS_UE").map(x=>x[0]).sort((a,b)=>a.localeCompare(b,"fr"));
+  return `<option>France</option><option>Monaco</option><optgroup label="Union européenne — TVA française 20 %">${ue.map(n=>`<option>${n}</option>`).join("")}<option>Autre pays de l'UE</option></optgroup><optgroup label="Hors UE — exportation, sans TVA">${hu.map(n=>`<option>${n}</option>`).join("")}<option>Autre pays hors UE</option></optgroup>`;
+}
+function syncCountry(){
+  if(!modal.countryName) modal.countryName = modal.country==="UE"?"Autre pays de l'UE":modal.country==="HORS_UE"?"Autre pays hors UE":"France";
+  modal.country=ZONE_OF(modal.countryName);
+  const c=modal.country; const tvaMode=state.settings.regime==="tva";
+  $$("#fCountry button").forEach(b=>b.classList.toggle("on",b.dataset.c===c));
+  const h=$("#fCountryHint"); const vente=modal.type==="vente";
+  if(vente && c==="HORS_UE" && tvaMode){ $("#fTva").value=0; $("#fTva").disabled=true; }
+  else if(vente && $("#fTva").disabled && !$("#fAutoliq").checked){ $("#fTva").value=state.settings.tvaDefault; $("#fTva").disabled=false; }
+  if(!vente){ h.textContent=""; return; }
+  const det = modal.detected && !modal.editing ? `🌍 Pays lu dans la facture : ${modal.detected.name}. ` : "";
+  if(det && modal.countryName===modal.detected.name){ h.textContent=det; }
+  if(det && modal.countryName===modal.detected.name){ h.textContent=det+(c==="HORS_UE"?"Exportation : pas de TVA française (gardez la preuve d'envoi).":c==="UE"?`TVA française 20 % sous ${fmt(OSS_LIMIT)} HT/an de ventes vers l'UE.`:""); }
+  else if(c==="HORS_UE") h.textContent="Exportation (Suisse, États-Unis, Royaume-Uni…) : pas de TVA française. Gardez la preuve d'envoi. Pour le Royaume-Uni, Etsy collecte lui-même la TVA britannique (commandes jusqu'à 135 £).";
+  else if(c==="UE"){ const y=+(($("#fDate").value||todayISO()).slice(0,4)); const tot=ueYear(y);
+    h.textContent=`TVA française à 20 % tant que vos ventes vers les autres pays de l'UE restent sous ${fmt(OSS_LIMIT)} HT par an (toute l'UE cumulée). Cumul ${y} : ${fmt(tot)}.`; }
+  else h.textContent="";
 }
 function syncAutoliq(){
   const on = $("#fAutoliq").checked && modal.type==="depense" && state.settings.regime==="tva";
@@ -943,6 +985,14 @@ function syncAutoliq(){
 
 /* ---------- Lecture des factures PDF (hors ligne) ---------- */
 const EN_MONTHS={january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12};
+function ascii85(bytes){
+  const s=new TextDecoder("latin1").decode(bytes).replace(/^\s*<~/,"").replace(/~>[\s\S]*$/,"").replace(/\s/g,"");
+  const out=[]; let g=[];
+  const flush=(n)=>{ let v=0; for(let i=0;i<5;i++) v=v*85+(g[i]??84); for(let i=0;i<n;i++) out.push((v>>>(24-8*i))&255); };
+  for(const ch of s){ if(ch==="z"&&!g.length){ out.push(0,0,0,0); continue; } g.push(ch.charCodeAt(0)-33); if(g.length===5){ flush(4); g=[]; } }
+  if(g.length){ const n=g.length-1; flush(n); }
+  return new Uint8Array(out);
+}
 async function inflate(bytes){
   // lit le flux morceau par morceau : certains PDF ont des octets en trop à la fin, on garde ce qui a été décompressé
   const reader=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
@@ -972,7 +1022,10 @@ async function pdfText(file){
     let chunk=buf.subarray(start, lm ? Math.min(end,start+(+lm[1])) : end);
     try{
       let txt;
-      if(/FlateDecode/.test(dict.slice(dict.lastIndexOf("<<")))){ txt=new TextDecoder("windows-1252").decode(await inflate(chunk)); }
+      const dd=dict.slice(dict.lastIndexOf("<<"));
+      if(/ASCII85Decode/.test(dd)) chunk=ascii85(chunk);
+      if(/FlateDecode/.test(dd)){ txt=new TextDecoder("windows-1252").decode(await inflate(chunk)); }
+      else if(/ASCII85Decode/.test(dd)) txt=new TextDecoder("windows-1252").decode(chunk);
       else txt=raw.slice(start,end);
       if(/T[jJ]/.test(txt)) pieces.push(...pdfStrings(txt));
     }catch(e){ /* flux non lisible : on ignore */ }
@@ -1001,14 +1054,62 @@ async function readInvoice(file){
     if(m=all.match(/Invoice Period:\s*\d+\s+([A-Za-z]+),?\s+(\d{4})/)) info.period=`${MONTHS[(EN_MONTHS[m[1].toLowerCase()]||1)-1]} ${m[2]}`;
     return info;
   }
-  // Facture classique : on cherche un total et une date
+  // Facture classique : on cherche un total, une date et le pays du client
   const info={};
   const flat=pieces.join(" ").replace(/\s+/g," ");
   const totals=[...flat.matchAll(/(net\s*à\s*payer|total\s*ttc|montant\s*ttc|total\s*à\s*payer|montant\s*total|total)\s*(?:\(?eur\)?|€)?\s*:?\s*(-?\d{1,3}(?:[\s .]\d{3})*[.,]\d{2})/gi)];
   if(totals.length){ const pref=totals.filter(t=>!/^total$/i.test(t[1].trim())); const t=(pref.length?pref:totals).pop(); info.amount=num(t[2]); }
   let m=flat.match(/\b(\d{2})[\/.-](\d{2})[\/.-](20\d{2})\b/); if(m && +m[2]<=12) info.date=`${m[3]}-${m[2]}-${m[1]}`;
   m=flat.match(/(?:tva|t\.v\.a\.?)[^0-9€]{0,25}(\d{1,2}(?:[.,]\d{1,2})?)\s*%/i); if(m) info.rate=num(m[1]);
-  return (info.amount||info.date)?info:null;
+  // Bon de commande Etsy (vente) : « Commande n°… », « Pays de destination », « Date de la commande », « Total de la commande »
+  const om=flat.match(/Commande n°\s*(\d{6,})/i);
+  if(om && /(etsy payments|lamaisondegabriel|pays de destination)/i.test(flat)){
+    info.etsyOrder=om[1];
+    const dm=flat.match(/date de la commande\s*:?\s*(\d{1,2})\s+([a-zéûè]+)\.?\s+(\d{4})/i);
+    if(dm){ const mo=MONTH_ANY[dm[2].toLowerCase()]; if(mo) info.date=`${dm[3]}-${pad(mo)}-${pad(+dm[1])}`; }
+    const tm=flat.match(/total de la commande\s*:?\s*(\d[\d\s .,]*\d)\s*€/i); if(tm) info.amount=num(tm[1]);
+    const pi=pieces.findIndex(x=>/pays de destination/i.test(x));
+    if(pi>=0){ const seg=pieces.slice(pi+1,pi+8).join(" "); info.country=detectCountry(seg); info.customer=(pieces[pi+1]||"").trim(); }
+  }
+  if(!info.country) info.country=detectCountry(flat);
+  return (info.amount||info.date||info.country)?info:null;
+}
+/* Pays du client lu dans le texte de la facture (adresse de livraison / de facturation) */
+const COUNTRIES=[
+  // [nom affiché, zone, variantes]
+  ["Allemagne","UE",["allemagne","germany","deutschland"]],["Autriche","UE",["autriche","austria","österreich","osterreich"]],
+  ["Belgique","UE",["belgique","belgium","belgië","belgie","belgien"]],["Bulgarie","UE",["bulgarie","bulgaria"]],
+  ["Chypre","UE",["chypre","cyprus"]],["Croatie","UE",["croatie","croatia","hrvatska"]],["Danemark","UE",["danemark","denmark","danmark"]],
+  ["Espagne","UE",["espagne","spain","españa","espana"]],["Estonie","UE",["estonie","estonia","eesti"]],["Finlande","UE",["finlande","finland","suomi"]],
+  ["Grèce","UE",["grèce","grece","greece","hellas"]],["Hongrie","UE",["hongrie","hungary","magyarország","magyarorszag"]],
+  ["Irlande","UE",["irlande","ireland","éire","eire"]],["Italie","UE",["italie","italy","italia"]],["Lettonie","UE",["lettonie","latvia","latvija"]],
+  ["Lituanie","UE",["lituanie","lithuania","lietuva"]],["Luxembourg","UE",["luxembourg","lëtzebuerg"]],["Malte","UE",["malte","malta"]],
+  ["Pays-Bas","UE",["pays-bas","pays bas","netherlands","nederland","the netherlands","holland"]],["Pologne","UE",["pologne","poland","polska"]],
+  ["Portugal","UE",["portugal"]],["République tchèque","UE",["république tchèque","republique tcheque","czech republic","czechia","česko","cesko"]],
+  ["Roumanie","UE",["roumanie","romania","românia"]],["Slovaquie","UE",["slovaquie","slovakia","slovensko"]],
+  ["Slovénie","UE",["slovénie","slovenie","slovenia","slovenija"]],["Suède","UE",["suède","suede","sweden","sverige"]],
+  ["Suisse","HORS_UE",["suisse","switzerland","schweiz","svizzera"]],["Royaume-Uni","HORS_UE",["royaume-uni","royaume uni","united kingdom","great britain","england","scotland","wales","northern ireland"]],
+  ["États-Unis","HORS_UE",["états-unis","etats-unis","etats unis","united states","usa","u.s.a."]],["Canada","HORS_UE",["canada"]],
+  ["Norvège","HORS_UE",["norvège","norvege","norway","norge"]],["Islande","HORS_UE",["islande","iceland"]],["Australie","HORS_UE",["australie","australia"]],
+  ["Nouvelle-Zélande","HORS_UE",["nouvelle-zélande","nouvelle-zelande","new zealand"]],["Japon","HORS_UE",["japon","japan"]],
+  ["Israël","HORS_UE",["israël","israel"]],["Singapour","HORS_UE",["singapour","singapore"]],["Hong Kong","HORS_UE",["hong kong"]],
+  ["Andorre","HORS_UE",["andorre","andorra"]],["Monaco","FR",["monaco"]],["France","FR",["france"]]
+];
+function detectCountry(text){
+  if(!text) return null;
+  // on retire ce qui n'est pas l'adresse du client : Etsy (Irlande) et votre propre adresse
+  let t=" "+text.toLowerCase().replace(/etsy\s+ireland(\s+uc)?/g," ").replace(/dublin[^,;]*/g," ").replace(/one le pole square|ship street great/g," ")+" ";
+  const hits={};
+  for(const [name,zone,vars] of COUNTRIES){
+    for(const v of vars){
+      const re=new RegExp("(^|[^a-zà-ÿ])"+v.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"(?=$|[^a-zà-ÿ])","g");
+      const n=(t.match(re)||[]).length; if(n){ hits[name]=(hits[name]||{name,zone,n:0}); hits[name].n+=n; }
+    }
+  }
+  const foreign=Object.values(hits).filter(h=>h.zone!=="FR").sort((a,b)=>b.n-a.n);
+  if(foreign.length) return {name:foreign[0].name,zone:foreign[0].zone};
+  if(hits["France"]||hits["Monaco"]) return {name:"France",zone:"FR"};
+  return null;
 }
 function applyInvoice(info){
   if(info.etsy){
@@ -1025,16 +1126,29 @@ function applyInvoice(info){
   if(info.amount && !$("#fAmount").value) $("#fAmount").value=info.amount.toFixed(2);
   if(info.date) $("#fDate").value=info.date;
   if(info.rate!=null && state.settings.regime==="tva") $("#fTva").value=info.rate;
-  const h=$("#mHint"); h.textContent="Montant lu dans la facture : vérifiez-le."; h.classList.add("ok");
+  modal.detected=info.country||null;
+  if(info.etsyOrder){
+    setType("vente","Etsy");
+    if(info.amount) $("#fAmount").value=info.amount.toFixed(2);
+    if(info.date) $("#fDate").value=info.date;
+    $("#fLabel").value=`Commande Etsy #${info.etsyOrder}`;
+    if(info.customer && !$("#fParty").value) $("#fParty").value=info.customer;
+    if(info.country){ modal.country=info.country.zone; modal.countryName=info.country.name; } syncCountry();
+    const h=$("#mHint"); h.textContent=`✓ Commande Etsy reconnue : montant, date et pays du client (${info.country?info.country.name:"non trouvé"}) remplis. Vérifiez puis enregistrez.`; h.classList.add("ok");
+    return;
+  }
+  if(info.country && modal.type==="vente"){ modal.country=info.country.zone; modal.countryName=info.country.name; syncCountry(); }
+  const h=$("#mHint"); h.textContent=(info.amount?"Montant lu dans la facture : vérifiez-le.":"")+(info.country?` Pays lu : ${info.country.name}.`:""); h.classList.add("ok");
 }
 
 /* ---------- Mon mois Etsy ---------- */
 const deM=m=>/^[aeiouyâ]/i.test(MONTHS[m])?`d'${MONTHS[m]}`:`de ${MONTHS[m]}`;
 const etsy={file:null,info:null};
-function openEtsy(file=null,info=null){
-  etsy.file=file; etsy.info=info;
+function openEtsy(file=null,info=null,csv=null){
+  etsy.file=file; etsy.info=info; etsy.csv=csv;
   let d=new Date(state.y,state.m,1);
   if(info && info.date){ d=new Date(+info.date.slice(0,4),+info.date.slice(5,7)-1,1); }
+  if(csv){ d=new Date(csv.y,csv.m,1); }
   $("#eMonth").innerHTML=MONTHS.map((n,i)=>`<option value="${i}" ${i===d.getMonth()?"selected":""}>${n[0].toUpperCase()+n.slice(1)}</option>`).join("");
   const y0=now.getFullYear(); $("#eYear").innerHTML=[y0-2,y0-1,y0,y0+1].map(y=>`<option ${y===d.getFullYear()?"selected":""}>${y}</option>`).join("");
   ["#eSales","#eCount","#eRefunds","#eFees"].forEach(id=>$(id).value="");
@@ -1042,6 +1156,7 @@ function openEtsy(file=null,info=null){
   $("#eTva").value=state.settings.tvaDefault; $("#eTvaWrap").classList.toggle("hidden",state.settings.regime!=="tva");
   $("#eHint").textContent=""; $("#eHint").classList.remove("ok");
   if(info && info.amount!=null) $("#eFees").value=info.amount.toFixed(2);
+  if(csv) applyCSV(csv);
   renderEtsyDrop(); etsyPreview();
   $("#mEtsy").classList.add("on"); setTimeout(()=>{ if(!$("#mEtsy").contains(document.activeElement)) $("#eSales").focus(); },50);
 }
@@ -1063,8 +1178,21 @@ function etsyFill(y,m,withFees){
   $("#eSales").value=sales?(Math.round(sales*100)/100):""; $("#eRefunds").value=refunds?(Math.round(refunds*100)/100):""; $("#eCount").value=count||"";
   if(withFees) $("#eFees").value=fees??"";
 }
+function applyCSV(c){
+  $("#eSales").value=c.sales?c.sales.toFixed(2):""; $("#eRefunds").value=c.refunds?c.refunds.toFixed(2):""; $("#eCount").value=c.count||"";
+  if(!etsy.info) $("#eFees").value=c.fees?c.fees.toFixed(2):"";
+}
 function renderEtsyDrop(){
   const box=$("#eDrop");
+  if(etsy.csv){
+    const c=etsy.csv; const inv=etsy.info;
+    const check = inv&&inv.amount!=null ? (Math.abs(inv.amount-c.fees)<0.015 ? ` <span class="up">✓ les frais du CSV (${fmt(c.fees)}) correspondent à la facture</span>` : ` <span class="down">⚠ frais du CSV ${fmt(c.fees)} ≠ facture ${fmt(inv.amount)} : la facture fait foi</span>`) : "";
+    box.classList.add("done");
+    $("#eDropTxt").innerHTML=`<b>Relevé CSV</b> lu ✓ — ${MONTHS[c.m]} ${c.y} · ${c.count} vente${c.count>1?"s":""} · ${fmt(c.sales)}${c.refunds?` · remboursements ${fmt(c.refunds)}`:""} · frais ${fmt(c.fees)}`
+      +(inv?`<br><b>Facture Etsy${inv.num?" n° "+esc(inv.num):""}</b> lue ✓ — ${fmt(inv.amount)}${check}`:`<br><span class="muted">Ajoutez la facture TVA Etsy (PDF) quand vous l'aurez reçue : c'est elle qui fait foi pour les frais.</span>`);
+    $("#eFeesHint").textContent=inv?"Lu dans la facture.":"Lu dans le relevé CSV (en attendant la facture).";
+    return;
+  }
   if(etsy.file && etsy.info){
     box.classList.add("done");
     $("#eDropTxt").innerHTML=`<b>Facture Etsy${etsy.info.num?" n° "+esc(etsy.info.num):""}</b> lue ✓ — ${etsy.info.period?esc(etsy.info.period)+" · ":""}${fmt(etsy.info.amount)}${etsy.info.reverse?" · autoliquidation":""}`;
@@ -1076,6 +1204,9 @@ function renderEtsyDrop(){
 }
 async function etsyAttach(file){
   if(!file) return;
+  if(isCSV(file)){ let c=null; try{ c=await readEtsyCSV(file); }catch(e){}
+    if(!c){ $("#eHint").textContent="Ce CSV n'a pas été reconnu comme un relevé Etsy."; return; }
+    etsy.csv=c; $("#eMonth").value=c.m; $("#eYear").value=c.y; applyCSV(c); renderEtsyDrop(); etsyPreview(); return; }
   let info=null; try{ info=await readInvoice(file); }catch(e){}
   etsy.file=file; etsy.info=info&&info.etsy?info:null;
   if(etsy.info){
@@ -1132,8 +1263,9 @@ async function saveEtsy(){
   if(!add.length && !x.fees && x.count && ind.salesN){ /* tout est déjà glissé */ }
   if(x.fees){
     const fe={...base,type:"depense",cat:"Frais Etsy (commissions, paiement, annonces)",party:"Etsy Ireland",tva:0,autoliq:state.settings.regime==="tva",id:uid(),created:Date.now()+2,amount:Math.round(x.fees*100)/100,
-      label:`Facture Etsy${etsy.info&&etsy.info.num?" n° "+etsy.info.num:""} – ${label}`,note:etsy.info&&etsy.info.detail||""};
-    if(etsy.file){ fe.fileName=etsy.file.name; }
+      label:`Facture Etsy${etsy.info&&etsy.info.num?" n° "+etsy.info.num:""} – ${label}`,note:(etsy.info&&etsy.info.detail)||(etsy.csv&&etsy.csv.detail.length?etsy.csv.detail.map(([k,v])=>`${k} : ${fmt(v)}`).join("\n"):"")};
+    if(etsy.file){ fe.fileName=etsy.file.name; } else if(etsy.csv){ fe.fileName=etsy.csv.name; }
+    if(etsy.csv) fe.csvDetail=etsy.csv.detail;
     else if(keptFile){ fe.fileName=keptFile.fileName; fe.note=keptFile.note||""; }
     add.push(fe);
   }
@@ -1167,11 +1299,58 @@ async function reconcileEtsy(date){
   }
 }
 function closeEtsy(){
-  $("#mEtsy").classList.remove("on"); etsy.file=null; etsy.info=null;
+  $("#mEtsy").classList.remove("on"); etsy.file=null; etsy.info=null; etsy.csv=null;
   if(modal.queue.length) setTimeout(()=>openFileFlow(modal.queue.shift()),180);
 }
 /* Un fichier déposé : facture Etsy → « Mon mois Etsy », sinon formulaire classique */
+/* ---------- Relevé CSV Etsy (Finances › Relevé mensuel › Télécharger CSV) ---------- */
+function parseCSV(text){
+  const rows=[]; let row=[], f="", q=false;
+  for(let i=0;i<text.length;i++){ const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){ f+='"'; i++; } else q=false; } else f+=c; }
+    else if(c==='"') q=true; else if(c===','){ row.push(f); f=""; } else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; row.push(f); if(row.some(x=>x!=="")) rows.push(row); row=[]; f=""; } else f+=c; }
+  row.push(f); if(row.some(x=>x!=="")) rows.push(row); return rows;
+}
+const csvMoney=v=>{ v=String(v||"").trim(); if(!v||v==="--") return 0; const neg=/^-|\(/.test(v); const n=parseFloat(v.replace(/[^\d.,]/g,"").replace(/,(?=\d{3}(\D|$))/g,"").replace(",",".")); return (neg?-1:1)*(n||0); };
+const MONTH_ANY={janv:1,"févr":2,fevr:2,avr:4,juil:7,sept:9,oct:10,nov:11,"déc":12,dec:12,jan:1,feb:2,mar:3,apr:4,jun:6,jul:7,aug:8,sep:9,january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12,janvier:1,"février":2,fevrier:2,mars:3,avril:4,mai:5,juin:6,juillet:7,"août":8,aout:8,septembre:9,octobre:10,novembre:11,"décembre":12,decembre:12};
+function feeLabel(type,title){
+  const t=(title||"").toLowerCase();
+  if(/marketing/i.test(type)||/etsy ads|publicit/.test(t)) return /offsite/.test(t)?"Publicité Offsite Ads":"Publicité Etsy Ads";
+  if(/share\s*&?\s*save/.test(t)) return "Remise Share & Save";
+  if(/shipping transaction|transaction fee|frais de transaction/.test(t)) return "Frais de transaction";
+  if(/processing|traitement/.test(t)) return "Frais de traitement des paiements";
+  if(/regulatory|réglementaire|reglementaire/.test(t)) return "Frais d'exploitation réglementaires";
+  if(/listing|mise en vente|renew|renouvel/.test(t)) return "Mise en vente et renouvellements";
+  if(/subscription|plus|abonnement/.test(t)) return "Abonnement Etsy Plus";
+  if(/label|étiquette|etiquette|postage/.test(t)) return "Étiquettes d'expédition";
+  return title||"Autres frais";
+}
+async function readEtsyCSV(file){
+  const text=(await file.text()).replace(/^﻿/,"");
+  const rows=parseCSV(text); if(rows.length<2) return null;
+  const h=rows[0].map(x=>x.trim().toLowerCase());
+  const col=(...names)=>h.findIndex(x=>names.includes(x));
+  const iDate=col("date"), iType=col("type"), iTitle=col("titre","title"), iInfo=col("info"), iAmt=col("montant","amount"), iFees=col("frais et taxes","fees & taxes","fees and taxes"), iNet=col("net");
+  if(iType<0||iAmt<0||iFees<0) return null;
+  let sales=0,refunds=0,count=0,fees=0; const det={}; const periods={}; const orders=new Set();
+  for(const r of rows.slice(1)){
+    const type=(r[iType]||"").trim(), title=r[iTitle]||"", amt=csvMoney(r[iAmt]), fee=csvMoney(r[iFees]);
+    const dm=String(r[iDate]||"").toLowerCase().match(/(\d{1,2})\s+([a-zéû]+)\s+(\d{4})/); if(dm&&MONTH_ANY[dm[2]]) { const k=`${dm[3]}-${pad(MONTH_ANY[dm[2]])}`; periods[k]=(periods[k]||0)+1; }
+    if(/^sale$|^vente$/i.test(type)){ sales+=amt; count++; const o=title.match(/#(\d+)/); if(o) orders.add(o[1]); }
+    else if(/refund|rembours/i.test(type)){ refunds+=Math.abs(amt||csvMoney(r[iNet])); }
+    else if(/^fee$|^frais$|marketing/i.test(type)){ const k=feeLabel(type,title); det[k]=(det[k]||0)-fee; fees-=fee; }
+    // Paiement / Deposit / Tax : mouvements de trésorerie ou taxes reversées par Etsy, hors résultat
+  }
+  const period=Object.entries(periods).sort((a,b)=>b[1]-a[1])[0]; if(!period) return null;
+  const round=v=>Math.round(v*100)/100;
+  const detail=Object.entries(det).map(([k,v])=>[k,round(v)]).filter(([,v])=>v);
+  return {csv:true,name:file.name,period:period[0],y:+period[0].slice(0,4),m:+period[0].slice(5,7)-1,sales:round(sales),refunds:round(refunds),count:orders.size||count,fees:round(fees),detail};
+}
+const isCSV=f=>/\.csv$/i.test(f.name)||/csv/i.test(f.type);
 async function openFileFlow(file){
+  if(isCSV(file)){ let c=null; try{ c=await readEtsyCSV(file); }catch(e){ console.warn(e); }
+    if(c) return openEtsy(null,null,c);
+    return toast("Ce fichier CSV n'a pas été reconnu comme un relevé Etsy."); }
   let info=null;
   if(/pdf/i.test(file.type)||/\.pdf$/i.test(file.name)){ try{ info=await readInvoice(file); }catch(e){ console.warn(e); } }
   if(info && info.etsy) return openEtsy(file,info);
@@ -1194,7 +1373,7 @@ async function saveEntry(){
   const date=$("#fDate").value; if(!date){ $("#mHint").textContent="Indiquez une date."; return; }
   const old=modal.editing;
   const e = old ? {...old} : {id:uid(),created:Date.now(),fileId:null,fileName:null};
-  Object.assign(e,{type:modal.type,amount:Math.round(amount*100)/100,date,cat:$("#fCat").value,label:$("#fLabel").value.trim(),party:$("#fParty").value.trim(),note:$("#fNote").value.trim(),tva:parseFloat($("#fTva").value)||0,refund:$("#fRefund").checked,autoliq:modal.type==="depense"&&state.settings.regime==="tva"&&$("#fAutoliq").checked,vatPaid:(modal.type==="depense"?Math.round((parseFloat(String($("#fVat").value).replace(",","."))||0)*100)/100:0)});
+  Object.assign(e,{type:modal.type,amount:Math.round(amount*100)/100,date,cat:$("#fCat").value,label:$("#fLabel").value.trim(),party:$("#fParty").value.trim(),note:$("#fNote").value.trim(),tva:parseFloat($("#fTva").value)||0,refund:$("#fRefund").checked,country:modal.type==="vente"?(modal.country||"FR"):undefined,countryName:modal.type==="vente"?(modal.countryName||"France"):undefined,autoliq:modal.type==="depense"&&state.settings.regime==="tva"&&$("#fAutoliq").checked,vatPaid:(modal.type==="depense"?Math.round((parseFloat(String($("#fVat").value).replace(",","."))||0)*100)/100:0)});
   if(e.vatPaid>e.amount){ $("#mHint").textContent="La TVA ne peut pas dépasser le montant."; return; }
   try{
     // l'app ne garde jamais de copie de la facture : seulement son nom, pour s'y retrouver
@@ -1228,7 +1407,7 @@ async function saveRefund(){
   if(amount>left+0.005){ $("#mHint").textContent=`Le remboursement ne peut pas dépasser ${fmt(left)}.`; return; }
   if(!date){ $("#mHint").textContent="Indiquez la date du remboursement."; return; }
   const ratio=amount/e.amount;
-  const r={id:uid(),created:Date.now(),type:e.type,refund:true,linkedTo:e.id,amount,date,cat:e.cat,party:e.party,tva:e.tva,autoliq:!!e.autoliq,
+  const r={id:uid(),created:Date.now(),type:e.type,refund:true,linkedTo:e.id,country:e.country,countryName:e.countryName,amount,date,cat:e.cat,party:e.party,tva:e.tva,autoliq:!!e.autoliq,
     vatPaid:e.vatPaid?Math.round(e.vatPaid*ratio*100)/100:0,label:`Remboursement – ${e.label||e.cat}`,note:"",fileId:null,fileName:null};
   await store.put("entries",r); state.entries.push(r); await reconcileEtsy(r.date); await touch();
   toast(`Remboursement de ${fmt(amount)} enregistré`);
@@ -1254,6 +1433,8 @@ async function openFile(fid){
 function enqueue(files){
   const ok=[...files].filter(f=>f.size>0);
   if(!ok.length) return;
+  const csvs=ok.filter(isCSV);
+  if(csvs.length===1 && ok.length===2){ (async()=>{ await openFileFlow(csvs[0]); await etsyAttach(ok.find(f=>!isCSV(f))); })(); return; }
   if($("#mEntry").classList.contains("on")||$("#mEtsy").classList.contains("on")){ modal.queue.push(...ok); $("#mQueue").textContent=`encore ${modal.queue.length} fichier${modal.queue.length>1?"s":""} après celui-ci`; return; }
   modal.queue.push(...ok.slice(1)); openFileFlow(ok[0]);
 }
@@ -1333,7 +1514,21 @@ function exportMonthXlsx(Y,m){
   if(tva) rows.push([],[H("TVA"),H("Montant")],["TVA collectée",E(s.tvaC)],["TVA récupérable",E(s.tvaD)],[B("TVA à reverser"),EB(s.tvaDue)],...(s.autoliq?[["Autoliquidation (base frais Etsy)",E(s.autoliq)],["TVA autoliquidée (à déclarer et à déduire)",E(s.autoliq*0.2)]]:[]));
   rows.push([],[H("Ventes par catégorie"),H("Montant")],...d.sales.map(([c,v])=>[c,E(v)]),[B("Total"),EB(s.sales)]);
   rows.push([],[H("Dépenses par catégorie"),H("Montant")],...d.exp.map(([c,v])=>[c,E(v)]),[B("Total"),EB(s.exp)]);
-  download(`La Maison de Gabriel - ${t}.xlsx`,xlsx([{name:t,rows,widths:[42,16]},opsSheet(d.list,"Opérations")]));
+  const sheets=[{name:t,rows,widths:[42,16]}];
+  if(tva){ const x=monthTax(Y,m);
+    sheets.push({name:"TVA (CA3)",rows:[[{v:`Déclaration de TVA — ${MONTHS[m]} ${Y}`,s:4}],[],[H("Ligne CA3"),H("Libellé"),H("Montant")],
+      ["A1","Ventes, prestations de services (HT)",E(s.sales-s.exportHT)],
+      ...(s.exportHT?[["E1","Exportations hors UE (non taxées)",E(s.exportHT)]]:[]),
+      ["A3","Achats de prestations auprès d'un assujetti non établi en France (frais Etsy)",E(s.autoliq)],
+      ["2A","Dont achats de prestations intracommunautaires",E(s.autoliq)],
+      ["08","Taux normal 20 % — base",E(s.sales-s.exportHT+s.autoliq)],["08","Taux normal 20 % — TVA",E(x.brute)],
+      ["16","Total TVA brute due",E(x.brute)],
+      ["20","TVA déductible (frais Etsy autoliquidés + achats)",E(x.deduc)],
+      ["23","Total TVA déductible",E(x.deduc)],
+      [B(x.nette>=0?"28":"25"),B(x.nette>=0?"TVA nette due":"Crédit de TVA"),EB(Math.abs(x.nette))],[],
+      ["","Numéros de lignes à vérifier sur le formulaire CA3. À valider par l'expert-comptable.",""]],widths:[11,70,14]}); }
+  sheets.push(opsSheet(d.list,"Opérations"));
+  download(`La Maison de Gabriel - ${t}.xlsx`,xlsx(sheets));
   toast("Fichier Excel enregistré dans Téléchargements");
 }
 function yearRows(Y){
@@ -1361,16 +1556,113 @@ function printDoc(title,body){
   setTimeout(()=>{ window.print(); setTimeout(()=>{ document.title=old; },500); },60);
 }
 const r=v=>`<td class="r">${fmt(v)}</td>`;
+/* détail des frais Etsy lu dans la facture (note « Libellé : 12,34 € ») */
+function feeLines(list){
+  const o={};
+  for(const e of list){ (e.note||"").split("\n").forEach(l=>{ const m=l.match(/^(.+?)\s*:\s*(-?[\d\s .,]+)\s*€/); if(m) o[m[1].trim()]=(o[m[1].trim()]||0)+sgn(e)*num(m[2]); }); }
+  return Object.entries(o);
+}
+function hasShareSave(fees){ return fees.some(e=>/share\s*&?\s*save/i.test((e.note||"")+" "+(e.label||"")+" "+JSON.stringify(e.csvDetail||[]))); }
+function monthTax(Y,m){
+  const d=monthData(Y,m); const s=d.s; const rate=+state.settings.tvaDefault||20;
+  const sales=d.list.filter(e=>e.type==="vente");
+  const fees=d.list.filter(e=>e.type==="depense"&&/Etsy/i.test(e.cat));
+  const buys=d.list.filter(e=>e.type==="depense"&&!/Etsy/i.test(e.cat));
+  const sum=(l,f)=>l.reduce((a,e)=>a+sgn(e)*f(e),0);
+  const salesTTC=sum(sales,e=>e.amount);
+  const feesHT=sum(fees,e=>ht(e));
+  const autoliqTva=Math.round(s.autoliq*rate)/100;
+  const buysTTC=sum(buys,e=>e.amount), buysHT=sum(buys,e=>ht(e)), buysTva=sum(buys,e=>tvaOf(e));
+  const feesTva=sum(fees,e=>tvaOf(e)); // TVA facturée sur frais (si facture française)
+  const brute=s.tvaC+autoliqTva, deduc=buysTva+feesTva+autoliqTva, nette=brute-deduc;
+  return {d,s,rate,sales,fees,buys,salesTTC,feesHT,autoliqTva,buysTTC,buysHT,buysTva,feesTva,brute,deduc,nette};
+}
+const e0=v=>Math.round(v).toLocaleString("fr-FR");
 function printMonth(Y,m){
-  const tva=state.settings.regime==="tva"; const d=monthData(Y,m); const s=d.s;
-  const cat=(rows,tot)=>rows.length?`<table>${rows.map(([c,v])=>`<tr><td>${esc(c)}</td>${r(v)}</tr>`).join("")}<tr class="t"><td>Total</td>${r(tot)}</tr></table>`:"<p>—</p>";
-  const ops=`<table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Catégorie</th><th class="r">${tva?"TTC":"Montant"}</th></tr></thead><tbody>${d.list.map(e=>`<tr><td>${e.date.split("-").reverse().join("/")}</td><td>${typeLabel(e)}</td><td>${esc(e.label)}${e.fileName?" 📎":""}</td><td>${esc(e.cat)}</td><td class="r">${isIn(e)?"+":"−"} ${fmt(e.amount)}</td></tr>`).join("")}</tbody></table>`;
-  printDoc(`Récap ${MONTHS[m]} ${Y}`,`
-    <div class="pk"><div><span>Ventes</span><b>${fmt(s.sales)}</b></div><div><span>Dépenses</span><b>${fmt(s.exp)}</b></div><div><span>${tva?"TVA à reverser":"Marge"}</span><b>${tva?fmt(s.tvaDue):(s.margin==null?"—":s.margin.toFixed(0)+" %")}</b></div><div><span>Bénéfice</span><b>${fmt(s.net)}</b></div></div>
-    ${tva?`<h2>TVA</h2><table><tr><td>TVA collectée</td>${r(s.tvaC)}</tr><tr><td>TVA récupérable</td>${r(s.tvaD)}</tr>${s.autoliq?`<tr><td>Autoliquidation Etsy — base ${fmt(s.autoliq)}, TVA à déclarer et à déduire</td>${r(s.autoliq*0.2)}</tr>`:""}<tr class="t"><td>TVA à reverser</td>${r(s.tvaDue)}</tr></table>`:""}
-    <h2>Ventes par catégorie</h2>${cat(d.sales,s.sales)}
-    <h2>Dépenses par catégorie</h2>${cat(d.exp,s.exp)}
-    <h2>Opérations (${d.list.length})</h2>${ops}`);
+  const tva=state.settings.regime==="tva"; const t=monthTax(Y,m); const s=t.s; const mois=`${MONTHS[m]} ${Y}`;
+  const dt=e=>e.date.split("-").reverse().join("/");
+  const pending=etsyFeesPending(Y,m);
+  if(!tva){ // franchise : récap simple
+    const cat=(rows,tot)=>rows.length?`<table>${rows.map(([c,v])=>`<tr><td>${esc(c)}</td>${r(v)}</tr>`).join("")}<tr class="t"><td>Total</td>${r(tot)}</tr></table>`:"<p>—</p>";
+    return printDoc(`Récap ${mois}`,`<div class="pk"><div><span>Ventes</span><b>${fmt(s.sales)}</b></div><div><span>Dépenses</span><b>${fmt(s.exp)}</b></div><div><span>Marge</span><b>${s.margin==null?"—":s.margin.toFixed(0)+" %"}</b></div><div><span>Bénéfice</span><b>${fmt(s.net)}</b></div></div><h2>Ventes par catégorie</h2>${cat(t.d.sales,s.sales)}<h2>Dépenses par catégorie</h2>${cat(t.d.exp,s.exp)}`);
+  }
+  const rows=(arr)=>arr.map(([a,b,cls])=>`<tr${cls?` class="${cls}"`:""}><td>${a}</td>${typeof b==="number"?r(b):`<td class="r">${b}</td>`}</tr>`).join("");
+  // 1. En bref
+  const bref=`<table>${rows([
+    ["Ventes encaissées (TTC, port compris"+(t.sales.some(e=>e.refund)?", remboursements déduits":"")+")",t.salesTTC],
+    ["Chiffre d'affaires HT",s.sales],
+    ...(s.ueHT?[["dont ventes à d'autres pays de l'UE (HT, TVA française 20 %)",s.ueHT]]:[]),
+    ...(s.exportHT?[["dont exportations hors UE (HT, sans TVA)",s.exportHT]]:[]),
+    [`TVA collectée sur les ventes (${String(t.rate).replace(".",",")} %)`,s.tvaC],
+    ["Frais Etsy (HT, autoliquidation)",t.feesHT],
+    ["TVA autoliquidée sur les frais Etsy (due = déductible)",t.autoliqTva],
+    ["Achats du mois HT (matières, emballages…)",t.buysHT],
+    ["TVA déductible sur les achats",t.buysTva+t.feesTva],
+    [t.nette>=0?"TVA nette à payer":"Crédit de TVA",Math.abs(t.nette),"t"],
+    ["Bénéfice du mois (HT)",s.net,"t"]])}</table>`;
+  // 2. Expliqué simplement
+  const simple=`<p class="lead">Vos clients ont payé <b>${fmt(t.salesTTC)}</b>. Dans ce montant, <b>${fmt(s.tvaC)}</b> de TVA appartiennent à l'État : il vous reste <b>${fmt(s.sales)}</b> de chiffre d'affaires. Etsy a pris <b>${fmt(t.feesHT)}</b> de frais${t.buysHT?`, et vos achats ont coûté <b>${fmt(t.buysHT)}</b> hors TVA (la TVA de ${fmt(t.buysTva)} vous est remboursée par l'État)`:""}.</p>
+    <p class="lead">Sur les frais Etsy, la facture indique « 0 % TVA » et « reverse charge » : vous déclarez <b>${fmt(t.autoliqTva)}</b> de TVA due et <b>${fmt(t.autoliqTva)}</b> de TVA déductible. Résultat : 0 €, mais il faut l'écrire.</p>
+    <table>${rows([["Argent payé par les clients",t.salesTTC],["− TVA à reverser à l'État",-s.tvaC],["− Frais Etsy",-t.feesHT],...(t.buysHT?[["− Achats (hors TVA)",-t.buysHT]]:[]),["= Ce qui vous reste (bénéfice HT)",s.net,"t"]])}</table>`;
+  // 3. Ventes
+  const ventes=t.sales.length?`<table><thead><tr><th>Date</th><th>Description</th><th class="r">TTC</th><th class="r">HT</th><th class="r">TVA</th></tr></thead><tbody>${t.sales.map(e=>{const g=sgn(e); return `<tr><td>${dt(e)}</td><td>${esc(e.label||e.cat)}${e.refund?" (remboursement)":""}${e.fileName?" 📎":""}</td>${r(g*e.amount)}${r(g*ht(e))}${r(g*tvaOf(e))}</tr>`;}).join("")}<tr class="t"><td colspan="2">Total</td>${r(t.salesTTC)}${r(s.sales)}${r(s.tvaC)}</tr></tbody></table>`:"<p>Aucune vente enregistrée.</p>";
+  // 4. Frais Etsy
+  const fl=feeLines(t.fees);
+  const frais=t.fees.length?`<table><thead><tr><th>Facture</th><th class="r">HT</th><th class="r">TVA autoliquidée</th></tr></thead><tbody>${t.fees.map(e=>`<tr><td>${esc(e.label)}${e.fileName?" 📎":""}</td>${r(sgn(e)*ht(e))}${e.autoliq?r(Math.round(sgn(e)*e.amount*t.rate)/100):'<td class="r">—</td>'}</tr>`).join("")}<tr class="t"><td>Total</td>${r(t.feesHT)}${r(t.autoliqTva)}</tr></tbody></table>
+    <p class="lead" style="margin-top:8px">Sur les frais Etsy, la facture indique « 0 % TVA » et « reverse charge » : vous déclarez <b>${fmt(t.autoliqTva)}</b> de TVA due et <b>${fmt(t.autoliqTva)}</b> de TVA déductible. Résultat : 0 €, mais il faut l'écrire.</p>
+    ${fl.length?`<table style="margin-top:6px"><thead><tr><th>Détail des frais (facture Etsy)</th><th class="r">Montant</th></tr></thead><tbody>${fl.map(([k,v])=>`<tr><td>${esc(k)}</td>${r(v)}</tr>`).join("")}</tbody></table>`:""}
+    ${hasShareSave(t.fees)?`<p style="font-size:9pt;margin:6px 0 2px">Remises Etsy (Share &amp; Save…) : à enregistrer comme remboursement fournisseur sur les frais Etsy si elles apparaissent sur le relevé.</p>`:""}
+    <p class="n" style="font-size:8.5pt;color:#8A797D">Etsy Ireland UC (TVA IE9777587C) : « Subject to reverse charge; TVA to be accounted for by the recipient as per Art 196 of Council Directive 2006/112/EC ».</p>`
+    :`<div class="box warn">⏳ La facture TVA Etsy de ${mois} n'est pas encore enregistrée (elle arrive vers le 10 du mois suivant). Le bénéfice et la TVA de ce récap sont provisoires.</div>`;
+  // 5. Achats
+  const achats=t.buys.length?`<table><thead><tr><th>Date</th><th>Achat</th><th>Fournisseur</th><th class="r">TTC</th><th class="r">TVA</th><th class="r">HT</th></tr></thead><tbody>${t.buys.map(e=>{const g=sgn(e); return `<tr><td>${dt(e)}</td><td>${esc(e.label||e.cat)}${e.refund?" (remboursement)":""}${e.fileName?" 📎":""}</td><td>${esc(e.party||"")}</td>${r(g*e.amount)}${r(g*tvaOf(e))}${r(g*ht(e))}</tr>`;}).join("")}<tr class="t"><td colspan="3">Total</td>${r(t.buysTTC)}${r(t.buysTva)}${r(t.buysHT)}</tr></tbody></table>`:"<p>Aucun achat enregistré ce mois-ci.</p>";
+  // 6. CA3
+  const ca3=`<table><thead><tr><th>Ligne CA3</th><th>Libellé</th><th class="r">Montant (€)</th></tr></thead><tbody>
+    <tr><td>A1</td><td>Ventes, prestations de services (HT)${s.ueHT?` — dont ventes à distance UE ${e0(s.ueHT)} (sous le seuil de 10 000 €)`:""}</td><td class="r">${e0(s.sales-s.exportHT)}</td></tr>
+    ${s.exportHT?`<tr><td>E1</td><td>Exportations hors UE (non taxées)</td><td class="r">${e0(s.exportHT)}</td></tr>`:""}
+    <tr><td>A3</td><td>Achats de prestations de services auprès d'un assujetti non établi en France (frais Etsy)</td><td class="r">${e0(s.autoliq)}</td></tr>
+    <tr><td>2A</td><td>Dont achats de prestations de services intracommunautaires</td><td class="r">${e0(s.autoliq)}</td></tr>
+    <tr><td>08</td><td>Taux normal 20 % : base ${e0(s.sales-s.exportHT)} + ${e0(s.autoliq)} = ${e0(s.sales-s.exportHT+s.autoliq)}</td><td class="r">TVA ${e0(t.brute)}</td></tr>
+    <tr><td>16</td><td>Total de la TVA brute due</td><td class="r">${e0(t.brute)}</td></tr>
+    <tr><td>20</td><td>TVA déductible sur autres biens et services (frais Etsy ${e0(t.autoliqTva)} + achats ${e0(t.buysTva+t.feesTva)})</td><td class="r">${e0(t.deduc)}</td></tr>
+    <tr><td>23</td><td>Total TVA déductible</td><td class="r">${e0(t.deduc)}</td></tr>
+    <tr class="t"><td>${t.nette>=0?"28":"25"}</td><td>${t.nette>=0?"TVA nette due":"Crédit de TVA"}</td><td class="r">${e0(Math.abs(t.nette))}</td></tr></tbody></table>
+    <p style="font-size:8.5pt;color:#8A797D">Montants arrondis à l'euro. Numéros de lignes de la CA3 en vigueur, à vérifier sur le formulaire. En CA12 (régime simplifié), cumuler sur l'année dans les lignes équivalentes.</p>`;
+  // 7. Écritures
+  const pub=fl.filter(([k])=>/publicit|ads/i.test(k)).reduce((a,[,v])=>a+v,0);
+  const comm=t.feesHT-pub;
+  const ecr=`<table><thead><tr><th>Opération</th><th>Débit</th><th>Crédit</th><th class="r">Montant</th></tr></thead><tbody>
+    <tr><td>Ventes</td><td>467 Etsy</td><td></td>${r(t.salesTTC)}</tr>
+    <tr><td></td><td></td><td>707 Ventes de marchandises</td>${r(s.sales)}</tr>
+    <tr><td></td><td></td><td>44571 TVA collectée</td>${r(s.tvaC)}</tr>
+    ${pub?`<tr><td>Publicité Etsy Ads</td><td>6231 Publicité</td><td>467 Etsy</td>${r(pub)}</tr>`:""}
+    ${t.feesHT?`<tr><td>Commissions et frais Etsy</td><td>622 Commissions</td><td>467 Etsy</td>${r(comm)}</tr>
+    <tr><td>Autoliquidation TVA sur frais</td><td>44566 TVA déductible</td><td>4452 TVA due intracommunautaire</td>${r(t.autoliqTva)}</tr>`:""}
+    ${t.buysHT?`<tr><td>Achats (matières, emballages…)</td><td>60x Achats + 44566 TVA déductible</td><td>401 Fournisseurs / 512 Banque</td>${r(t.buysTTC)}</tr>`:""}
+    </tbody></table><p style="font-size:8.5pt;color:#8A797D">Comptes du plan comptable général, à adapter par le comptable. Le compte Etsy est suivi en compte d'attente (467 « Etsy »).</p>`;
+  // 8. Points à vérifier
+  const pts=[
+    "Pays des clients : chaque vente est marquée France, UE ou hors UE. Les ventes sans précision (dont les ventes Etsy « sans facture ») sont comptées en France.",
+    s.exportHT?`Exportations hors UE (${fmt(s.exportHT)}) : conserver les preuves d'envoi hors UE.`:null,
+    (()=>{ const u=ueYear(Y); return u?`Ventes à distance vers l'UE depuis le 1er janvier ${Y} : ${fmt(u)} HT sur un seuil de ${fmt(OSS_LIMIT)}.${u>=OSS_LIMIT?" Seuil dépassé : inscription au guichet unique OSS et TVA du pays du client.":""}`:null; })(),
+    pending?"Facture TVA Etsy du mois pas encore enregistrée : frais et TVA autoliquidée manquants.":null,
+    t.buys.some(e=>!e.tva)?"Certains achats n'ont pas de TVA renseignée : vérifiez les factures.":null,
+    t.d.list.some(e=>!e.fileName)?`${t.d.list.filter(e=>!e.fileName).length} opération(s) sans justificatif joint dans l'app.`:null,
+    "Remises Etsy (Share & Save…) : à enregistrer comme remboursement fournisseur sur les frais Etsy si elles apparaissent sur le relevé."
+  ].filter(Boolean);
+  printDoc(`Récap ${mois}`,`
+    <p class="lead">SARL Digitalizz — La Maison de Gabriel · société assujettie et redevable de la TVA · vente de bougies (TVA ${String(t.rate).replace(".",",")} %) · période : ${mois}</p>
+    <div class="pk"><div><span>Ventes encaissées TTC</span><b>${fmt(t.salesTTC)}</b></div><div><span>Chiffre d'affaires HT</span><b>${fmt(s.sales)}</b></div><div><span>${t.nette>=0?"TVA nette à payer":"Crédit de TVA"}</span><b>${fmt(Math.abs(t.nette))}</b></div><div><span>Bénéfice HT${pending?" ⏳":""}</span><b>${fmt(s.net)}</b></div></div>
+    ${pending?`<div class="box warn">⏳ Provisoire : la facture TVA Etsy de ${mois} n'est pas encore enregistrée.</div>`:""}
+    <h2>1. En bref</h2>${bref}
+    <h2>2. Les ventes du mois</h2>${ventes}
+    <h2>3. Les frais Etsy</h2>${frais}
+    <h2>4. Les achats du mois</h2>${achats}
+    <div class="newpage"></div>
+    <h1 class="sec">Déclaration de TVA — ${mois}</h1>
+    <h2>1. Déclaration de TVA (CA3)</h2>${ca3}
+    <h2>2. Écritures comptables proposées</h2>${ecr}
+    <p style="font-size:8.5pt;color:#8A797D;margin-top:10px">Calculs réalisés par l'app La Maison de Gabriel à partir des opérations saisies. À valider par l'expert-comptable avant toute déclaration.</p>`);
 }
 function printYear(Y){
   const tva=state.settings.regime==="tva"; const hc=handicapOf(Y); const ys=summarize(state.entries.filter(e=>+e.date.slice(0,4)===Y));
@@ -1577,6 +1869,8 @@ function bind(){
   $("#restorePick").onchange=e=>{ const f=e.target.files[0]; if(f) restore(f); e.target.value=""; };
 
   $$(".typepick button").forEach(b=>b.onclick=()=>{ setType(b.dataset.type); $("#fAmount").focus(); });
+  $$("#fCountry button").forEach(b=>b.onclick=()=>{ const z=b.dataset.c; modal.country=z; modal.countryName = (modal.detected&&modal.detected.zone===z) ? modal.detected.name : (z==="UE"?"Autre pays de l'UE":z==="HORS_UE"?"Autre pays hors UE":"France"); syncCountry(); });
+  $("#fDate").addEventListener("change",()=>{ if(modal.type==="vente") syncCountry(); });
   $("#fAutoliq").onchange=()=>{ if(!$("#fAutoliq").checked) $("#fTva").value=state.settings.tvaDefault; syncAutoliq(); };
   $("#fCat").onchange=async()=>{
     const sel=$("#fCat");
@@ -1617,7 +1911,7 @@ function bind(){
   window.addEventListener("dragleave",e=>{ if(!hasFiles(e)) return; depth=Math.max(0,depth-1); if(!depth) ov.classList.remove("on"); });
   window.addEventListener("drop",e=>{ if(!hasFiles(e)) return; e.preventDefault(); depth=0; ov.classList.remove("on");
     const files=e.dataTransfer.files;
-    if($("#mEtsy").classList.contains("on") && files.length===1){ etsyAttach(files[0]); return; }
+    if($("#mEtsy").classList.contains("on") && files.length<=2){ (async()=>{ for(const f of files) await etsyAttach(f); })(); return; }
     if($("#mEntry").classList.contains("on") && files.length===1 && !modal.file && !(modal.editing&&modal.editing.fileName&&!modal.removeFile)){ modal.file=files[0]; modal.removeFile=false; showPreview(); renderAttach(); return; }
     enqueue(files); });
 }
