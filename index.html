@@ -769,7 +769,8 @@ function etsyFeesPending(y,m){ const l=state.entries.filter(e=>inMonth(e,y,m)); 
 function monthRecaps(Y){ const ms=new Set(); state.entries.forEach(e=>{ if(e.date&&+e.date.slice(0,4)===Y) ms.add(+e.date.slice(5,7)-1); }); return [...ms].sort((a,b)=>a-b); }
 const cap=t=>t[0].toUpperCase()+t.slice(1);
 function renderYearNav(){
-  const open = (state.view==="year") ? state.year : (state.view==="month" ? state.y : null);
+  let open = (state.view==="year") ? state.year : (state.view==="month" ? state.y : null);
+  if(open!==null && state.navClosed===open) open=null;
   $("#yearNav").innerHTML = yearList().map(Y=>{
     let h=`<button class="nav" data-view="year" data-year="${Y}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg><span>Récap ${Y}</span></button>`;
     if(open===Y){
@@ -1526,8 +1527,9 @@ function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("on"
 function shiftMonth(d){ const x=new Date(state.y,state.m+d,1); state.y=x.getFullYear(); state.m=x.getMonth(); render(); }
 
 function bind(){
-  document.addEventListener("click",ev=>{ const b=ev.target.closest(".nav[data-view]"); if(!b) return; state.view=b.dataset.view;
-    if(state.view==="year") state.year=+b.dataset.year;
+  document.addEventListener("click",ev=>{ const b=ev.target.closest(".nav[data-view]"); if(!b) return; const prevView=state.view; state.view=b.dataset.view;
+    if(state.view==="year"){ const Y=+b.dataset.year; const wasOpen = prevView==="year" && state.year===Y && state.navClosed!==Y; state.navClosed = wasOpen ? Y : null; state.year=Y; }
+    if(state.view!=="year") state.navClosed=null;
     if(state.view==="month"){ state.y=+b.dataset.year; state.m=+b.dataset.month; state.year=state.y; }
     render(); });
   ["#syncUrl","#syncKey"].forEach(id=>$(id).addEventListener("change",()=>Sync.save({url:$("#syncUrl").value.trim(),key:$("#syncKey").value.trim()})));
