@@ -663,6 +663,8 @@ function monthSum(y,m){ return summarize(state.entries.filter(e=>inMonth(e,y,m))
   // anciennes versions : les factures étaient copiées dans l'app → on les efface, on garde le nom
   if(state.entries.some(e=>e.fileId)){ for(const e of state.entries){ if(e.fileId){ e.fileId=null; await store.put("entries",e); } } await store.clear("files").catch(()=>{}); }
   else store.clear("files").catch(()=>{});
+  // remboursements de commandes annulées rangés au bon mois (mois du remboursement Etsy)
+  try{ if(Object.keys(state.settings.etsyTotals||{}).length){ const mv=await alignRefunds(); for(const p of mv) await reconcileEtsy(p+"-01",true); if(mv.length) await touch(); } }catch(e){ console.warn(e); }
   bind(); render(); Sync.start();
   if("serviceWorker" in navigator && location.protocol==="https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();
@@ -1571,6 +1573,17 @@ async function alignRefunds(){
     const sale=state.entries.find(x=>x.id===r.linkedTo); const num=sale&&orderOf(sale); if(!num) continue;
     const er=etsyRefundOf(num); if(!er||!er.date||er.date.slice(0,7)===r.date.slice(0,7)) continue;
     moved.add(r.date.slice(0,7)); r.date=er.date<sale.date?sale.date:er.date; moved.add(r.date.slice(0,7)); await store.put("entries",r);
+  }
+  // Sans le détail du relevé : si un mois a plus de remboursements enregistrés que son relevé Etsy,
+  // et que le mois suivant a exactement ces remboursements « sans facture », on les range au mois suivant.
+  const T=state.settings.etsyTotals||{};
+  for(const [p,t] of Object.entries(T)){
+    const y=+p.slice(0,4), m=+p.slice(5,7)-1; const ind=indivEtsy(y,m); let over=Math.round((ind.refunds-(t.refunds||0))*100)/100; if(over<=0.004) continue;
+    const nd=new Date(y,m+1,1); const np=`${nd.getFullYear()}-${pad(nd.getMonth()+1)}`; const nt=T[np]; if(!nt) continue;
+    const nind=indivEtsy(nd.getFullYear(),nd.getMonth()); let room=Math.round(((nt.refunds||0)-nind.refunds)*100)/100; if(room<=0.004) continue;
+    const cands=state.entries.filter(x=>x.refund&&x.linkedTo&&x.type==="vente"&&x.cat==="Etsy"&&inMonth(x,y,m)&&!(nt.refundOrders||T[p].refundOrders)).sort((a,b)=>b.date.localeCompare(a.date));
+    for(const r of cands){ if(r.amount>over+0.004||r.amount>room+0.004) continue;
+      r.date=`${np}-01`; await store.put("entries",r); over-=r.amount; room-=r.amount; moved.add(p); moved.add(np); }
   }
   return [...moved];
 }
