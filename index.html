@@ -502,6 +502,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
         </div>
         <label class="chk hidden" id="fRefundWrap"><input type="checkbox" id="fRefund"><span id="fRefundTxt"></span></label>
         <label class="chk hidden" id="fCancelWrap"><input type="checkbox" id="fCancel"><span>Commande annulée : l'acheteur a été remboursé en totalité<small>La vente et son remboursement sont enregistrés ensemble. Ça fait 0 € de ventes, mais la commande reste visible et colle au relevé Etsy.</small></span></label>
+        <div id="fCancelDateWrap" class="hidden" style="margin:-4px 0 6px 30px;max-width:260px"><label for="fCancelDate" style="font-size:12.5px;font-weight:500;color:var(--ink2)">Date du remboursement</label><input type="date" id="fCancelDate"><small style="display:block;color:var(--ink2);font-size:12px;margin-top:3px">À changer si la commande a été annulée le mois suivant.</small></div>
         <div id="fCountryWrap" class="hidden">
           <label>Pays du client</label>
           <div class="seg" id="fCountry"><button type="button" data-c="FR" class="on">France</button><button type="button" data-c="UE">Autre pays de l'UE</button><button type="button" data-c="HORS_UE">Hors UE (exportation)</button></div>
@@ -648,7 +649,7 @@ function refundedOf(id){ return state.entries.filter(r=>r.linkedTo===id).reduce(
 function summarize(list){
   let sales=0,exp=0,tvaC=0,tvaD=0,vatPaid=0,autoliq=0,ueHT=0,exportHT=0;
   for(const e of list){ if(e.type==="vente"){ sales+=sgn(e)*ht(e); tvaC+=sgn(e)*tvaOf(e); if(e.country==="UE") ueHT+=sgn(e)*ht(e); if(e.country==="HORS_UE") exportHT+=sgn(e)*ht(e);} else { const g=sgn(e); exp+=g*ht(e); tvaD+=g*tvaOf(e); vatPaid+=g*(state.settings.regime==="tva"?tvaOf(e):(+e.vatPaid||0)); if(e.autoliq) autoliq+=g*e.amount;} }
-  return {sales,exp,gross:sales-exp,net:sales-exp,margin:sales?(sales-exp)/sales*100:null,tvaC,tvaD,tvaDue:tvaC-tvaD,vatPaid,autoliq,ueHT,exportHT,n:list.length};
+  return {sales,exp,gross:sales-exp,net:sales-exp,margin:sales>0.005?(sales-exp)/sales*100:null,tvaC,tvaD,tvaDue:tvaC-tvaD,vatPaid,autoliq,ueHT,exportHT,n:list.length};
 }
 function monthSum(y,m){ return summarize(state.entries.filter(e=>inMonth(e,y,m))); }
 
@@ -698,7 +699,7 @@ function renderDash(){
   const tva = state.settings.regime==="tva";
   const sfx = tva ? " HT" : "";
   $("#kpis").innerHTML = `
-    <div class="kpi"><div class="l"><span class="dot" style="background:var(--sale)"></span>Ventes${sfx}</div><div class="v num">${fmt(cur.sales)}</div><div class="d">${delta(cur.sales,prev.sales)}</div></div>
+    <div class="kpi"><div class="l"><span class="dot" style="background:var(--sale)"></span>Ventes${sfx}</div><div class="v num">${fmt(cur.sales)}</div><div class="d">${lateTxt(state.y,state.m)||delta(cur.sales,prev.sales)}</div></div>
     <div class="kpi"><div class="l"><span class="dot" style="background:var(--exp)"></span>Dépenses${sfx}</div><div class="v num">${fmt(cur.exp)}</div><div class="d">${delta(cur.exp,prev.exp,true)}${cur.vatPaid?`<br>${tva?"TVA récupérable":"dont TVA payée"} : <b>${fmt(cur.vatPaid)}</b>`:""}${tva&&cur.autoliq?`<br>Frais autoliquidés (Etsy) : <b>${fmt(cur.autoliq)}</b>`:""}</div></div>
     <div class="kpi"><div class="l">Marge</div><div class="v num">${cur.margin==null?"—":cur.margin.toFixed(0)+" %"}</div><div class="d">part des ventes qui vous reste${tva?` · TVA à reverser : <b>${fmt(cur.tvaDue)}</b>`:""}</div></div>
     <div class="kpi hero"><div class="l">Bénéfice du mois</div><div class="v num">${fmt(cur.net)}</div><div class="d">${delta(cur.net,prev.net)}${etsyFeesPending(state.y,state.m)?'<br><span class="pend">⏳ provisoire : frais Etsy pas encore reçus</span>':""}</div></div>`;
@@ -924,7 +925,7 @@ function openEntry({file=null,entry=null}={}){
   $("#fTva").value = e.tva ?? state.settings.tvaDefault;
   $("#fTvaWrap").classList.toggle("hidden",state.settings.regime!=="tva");
   $("#fVat").value = e.vatPaid || "";
-  $("#fRefund").checked = !!e.refund; $("#fCancel").checked=false; $("#fAutoliq").checked = !!e.autoliq; modal.country = e.country || "FR"; modal.countryName = e.countryName || null; syncAutoliq();
+  $("#fRefund").checked = !!e.refund; $("#fCancel").checked=false; $("#fCancelDate").value=""; $("#fAutoliq").checked = !!e.autoliq; modal.country = e.country || "FR"; modal.countryName = e.countryName || null; syncAutoliq();
   $("#fAmountLbl").textContent = state.settings.regime==="tva" ? "Montant TTC" : "Montant";
   setType(e.type,e.cat);
   $("#mDelete").classList.toggle("hidden",!entry);
@@ -940,7 +941,9 @@ function openEntry({file=null,entry=null}={}){
   $("#mEntry").classList.add("on");
   setTimeout(()=>{ if($("#mEntry").contains(document.activeElement)) return; (e.type? $("#fAmount") : document.querySelector(".typepick button")).focus(); },50);
 }
-function syncCancel(){ const c=$("#fCancel").checked; if(c) $("#fRefund").checked=false; $("#fRefundWrap").classList.toggle("hidden", c || !modal.type || !!(modal.editing && !modal.editing.refund)); }
+function syncCancel(){ const c=$("#fCancel").checked;
+  if(c){ const m=($("#fLabel").value||"").match(/Commande (?:Etsy #|n°\s*)(\d{6,})/); const er=m&&etsyRefundOf(m[1]); const v=$("#fCancelDate").value;
+    if(er&&er.date&&(!v||v===$("#fDate").value)) $("#fCancelDate").value=er.date<$("#fDate").value?$("#fDate").value:er.date; } $("#fCancelDateWrap").classList.toggle("hidden",!c||$("#fCancelWrap").classList.contains("hidden")); if(c&&!$("#fCancelDate").value) $("#fCancelDate").value=$("#fDate").value; if(c) $("#fRefund").checked=false; $("#fRefundWrap").classList.toggle("hidden", c || !modal.type || !!(modal.editing && !modal.editing.refund)); }
 function defaultDate(){ const t=new Date(); return (t.getFullYear()===state.y&&t.getMonth()===state.m) ? todayISO() : `${state.y}-${pad(state.m+1)}-01`; }
 
 async function showPreview(){
@@ -1347,6 +1350,7 @@ function applyInvoice(info){
     $("#fLabel").value=info.etsyOrder?`Commande n° ${info.etsyOrder}`:`Commande annulée${info.customer?" – "+info.customer:""}`;
     if(info.customer) $("#fParty").value=info.customer;
     if(info.country){ modal.country=info.country.zone; modal.countryName=info.country.name; } syncCountry();
+    $("#fCancelDate").value=""; syncCancel();
     const h=$("#mHint"); h.textContent=`✓ Commande annulée reconnue${info.country?` (${info.country.name})`:""} : ${info.amount?fmt(info.amount)+" payés puis remboursés en totalité. ":""}${info.date?"Vérifiez":"Indiquez la date de la commande"} puis enregistrez.`; h.classList.add("ok");
     return;
   }
@@ -1535,8 +1539,9 @@ async function saveEtsy(){
   }
   for(const e of add){ await store.put("entries",e); state.entries.push(e); }
   state.settings.etsyTotals=state.settings.etsyTotals||{}; const prevT=state.settings.etsyTotals[period]||{};
-  state.settings.etsyTotals[period]={sales:x.sales,refunds:x.refunds,count:x.count||0,tva:x.tva,csv:(etsy.csv&&etsy.csv.name)||prevT.csv||null,invoice:(etsy.info&&(etsy.info.num||etsy.file&&etsy.file.name))||(etsy.file&&etsy.file.name)||prevT.invoice||null,orders:(etsy.csv&&etsy.csv.orders)||prevT.orders||null};
+  state.settings.etsyTotals[period]={sales:x.sales,refunds:x.refunds,count:x.count||0,tva:x.tva,csv:(etsy.csv&&etsy.csv.name)||prevT.csv||null,invoice:(etsy.info&&(etsy.info.num||etsy.file&&etsy.file.name))||(etsy.file&&etsy.file.name)||prevT.invoice||null,orders:(etsy.csv&&etsy.csv.orders)||prevT.orders||null,refundOrders:(etsy.csv&&etsy.csv.refundOrders)||prevT.refundOrders||null};
   const finReturn=state.view==="options"; await touch(); state.y=x.y; state.m=x.m; state.view="dash";
+  for(const p of Object.keys(state.settings.etsyTotals||{})) await reconcileEtsy(p+"-01");
   const wasFin=finReturn; closeEtsy(); toast(`Mois Etsy ${deM(x.m)} enregistré`);
   if(wasFin){ state.view="options"; state.fy=x.y; state.fm=x.m; } render();
 }
@@ -1548,7 +1553,28 @@ function syncEtsyTotal(e,newAmount){
   const y=+e.period.slice(0,4), m=+e.period.slice(5,7)-1; const ind=indivEtsy(y,m);
   if(e.refund) t.refunds=Math.round((ind.refunds+newAmount)*100)/100; else t.sales=Math.round((ind.sales+newAmount)*100)/100;
 }
-async function reconcileEtsy(date){
+function etsyRefundOf(num){ const T=state.settings.etsyTotals||{}; for(const [p,t] of Object.entries(T)){ const r=t.refundOrders&&t.refundOrders[num]; if(r) return {period:p,date:r.date||`${p}-${pad(new Date(+p.slice(0,4),+p.slice(5,7),0).getDate())}`,amount:r.amount}; } return null; }
+/* Remboursements ce mois-ci de commandes vendues un mois précédent (HT) : la vente est dans l'autre mois */
+function lateRefunds(y,m){
+  const period=`${y}-${pad(m+1)}`; const t=(state.settings.etsyTotals||{})[period]; const seen=new Set(); let ht=0; const months=new Set();
+  for(const r of state.entries.filter(x=>x.refund&&x.linkedTo&&inMonth(x,y,m))){ const sl=state.entries.find(z=>z.id===r.linkedTo); if(sl&&sl.date.slice(0,7)<period){ ht+=r.amount/(1+(r.tva||0)/100); months.add(sl.date.slice(0,7)); const o=orderOf(sl); if(o) seen.add(o); } }
+  if(t&&t.refundOrders) for(const [k,v] of Object.entries(t.refundOrders)){ if(seen.has(k)) continue; const sm=etsySaleMonth(k); if(sm&&sm<period){ ht+=v.amount/(1+((t.tva??state.settings.tvaDefault)||0)/100); months.add(sm); } }
+  return ht>0.004?{ht:Math.round(ht*100)/100,months:[...months].sort()}:null;
+}
+const lateTxt=(y,m)=>{ const l=lateRefunds(y,m); return l?`dont <b>−${fmt(l.ht)}</b> de remboursements de commandes de ${l.months.map(p=>MONTHS[+p.slice(5,7)-1]).join(", ")} (annulées ce mois-ci)`:""; };
+function etsySaleMonth(num){ const e=state.entries.find(x=>orderOf(x)===String(num)); if(e) return e.date.slice(0,7); const T=state.settings.etsyTotals||{}; for(const [p,t] of Object.entries(T)) if((t.orders||[]).map(String).includes(String(num))) return p; return null; }
+/* Remboursement d'une commande annulée : on le range au mois où Etsy l'a vraiment remboursé (relevé CSV) */
+async function alignRefunds(){
+  const moved=new Set();
+  for(const r of state.entries.filter(x=>x.refund&&x.linkedTo&&x.type==="vente"&&x.cat==="Etsy")){
+    const sale=state.entries.find(x=>x.id===r.linkedTo); const num=sale&&orderOf(sale); if(!num) continue;
+    const er=etsyRefundOf(num); if(!er||!er.date||er.date.slice(0,7)===r.date.slice(0,7)) continue;
+    moved.add(r.date.slice(0,7)); r.date=er.date<sale.date?sale.date:er.date; moved.add(r.date.slice(0,7)); await store.put("entries",r);
+  }
+  return [...moved];
+}
+async function reconcileEtsy(date,noAlign){
+  if(!noAlign && date){ const mv=await alignRefunds(); for(const p of mv) if(p!==date.slice(0,7)) await reconcileEtsy(p+"-01",true); }
   if(!date) return; const y=+date.slice(0,4), m=+date.slice(5,7)-1, period=`${y}-${pad(m+1)}`;
   const t=(state.settings.etsyTotals||{})[period]; if(!t) return;
   const ind=indivEtsy(y,m); const last=new Date(y,m+1,0).getDate(); const label=`${MONTHS[m]} ${y}`;
@@ -1558,7 +1584,13 @@ async function reconcileEtsy(date){
     if(target>0){
       const e=adj?{...adj}:{id:uid(),created:Date.now(),type:"vente",cat:"Etsy",party:"Etsy",tva:t.tva??state.settings.tvaDefault,date:`${period}-${pad(last)}`,src:"etsy-releve",period,fileId:null,fileName:null,vatPaid:0,note:"",refund:refund||undefined};
       const hasInd = refund ? ind.refundsN>0 : ind.salesN>0;
-      e.amount=target; e.label = refund ? (hasInd?`Remboursements Etsy sans facture – ${label}`:`Remboursements Etsy ${label}`) : (hasInd?`Ventes Etsy sans facture – ${label}`:`Ventes Etsy ${label}${t.count?` (${t.count} vente${t.count>1?"s":""})`:""}`);
+      let extra="";
+      if(refund && t.refundOrders){ const indNums=new Set(state.entries.filter(x=>inMonth(x,y,m)&&x.refund&&x.linkedTo).map(x=>{ const sl=state.entries.find(z=>z.id===x.linkedTo); return sl&&orderOf(sl); }).filter(Boolean));
+        const rest=Object.entries(t.refundOrders).filter(([k])=>!indNums.has(k));
+        if(rest.length){ const ms=[...new Set(rest.map(([k])=>etsySaleMonth(k)).filter(p=>p&&p<period))];
+          extra=` – n° ${rest.map(([k])=>k).join(", n° ")}${ms.length?` (vendue${rest.length>1?"s":""} en ${ms.map(p=>MONTHS[+p.slice(5,7)-1]+" "+p.slice(0,4)).join(", ")})`:""}`;
+          e.note=rest.map(([k,v])=>`Commande n° ${k} : ${fmt(v.amount)} remboursés${v.date?" le "+v.date.split("-").reverse().join("/"):""}`).join("\n"); } }
+      e.amount=target; e.label = refund ? (hasInd?`Remboursements Etsy sans facture – ${label}${extra}`:`Remboursements Etsy ${label}${extra}`) : (hasInd?`Ventes Etsy sans facture – ${label}`:`Ventes Etsy ${label}${t.count?` (${t.count} vente${t.count>1?"s":""})`:""}`);
       await store.put("entries",e); const i=state.entries.findIndex(x=>x.id===e.id); if(i>=0) state.entries[i]=e; else state.entries.push(e);
     } else if(adj){ await store.del("entries",adj.id); state.entries=state.entries.filter(x=>x.id!==adj.id); }
     if(target<0) toast(`Attention : vos factures Etsy ${deM(m)} dépassent le total du relevé Etsy (${fmt(-target)} de trop). Vérifiez qu'aucune n'a été glissée deux fois.`);
@@ -1598,19 +1630,21 @@ async function readEtsyCSV(file){
   const col=(...names)=>h.findIndex(x=>names.includes(x));
   const iDate=col("date"), iType=col("type"), iTitle=col("titre","title"), iInfo=col("info"), iAmt=col("montant","amount"), iFees=col("frais et taxes","fees & taxes","fees and taxes"), iNet=col("net");
   if(iType<0||iAmt<0||iFees<0) return null;
-  let sales=0,refunds=0,count=0,fees=0; const det={}; const periods={}; const orders=new Set();
+  let sales=0,refunds=0,count=0,fees=0; const det={}; const periods={}; const orders=new Set(); const refundOrders={};
   for(const r of rows.slice(1)){
     const type=(r[iType]||"").trim(), title=r[iTitle]||"", amt=csvMoney(r[iAmt]), fee=csvMoney(r[iFees]);
     const dm=String(r[iDate]||"").toLowerCase().match(/(\d{1,2})\s+([a-zéû]+)\s+(\d{4})/); if(dm&&MONTH_ANY[dm[2]]) { const k=`${dm[3]}-${pad(MONTH_ANY[dm[2]])}`; periods[k]=(periods[k]||0)+1; }
     if(/^sale$|^vente$/i.test(type)){ sales+=amt; count++; const o=title.match(/#(\d+)/); if(o) orders.add(o[1]); }
-    else if(/refund|rembours/i.test(type)){ refunds+=Math.abs(amt||csvMoney(r[iNet])); }
+    else if(/refund|rembours/i.test(type)){ const v=Math.abs(amt||csvMoney(r[iNet])); refunds+=v;
+      const o=(title+" "+(iInfo>=0?r[iInfo]||"":"")).match(/(\d{8,})/); const iso=dm&&MONTH_ANY[dm[2]]?`${dm[3]}-${pad(MONTH_ANY[dm[2]])}-${pad(+dm[1])}`:null;
+      if(o){ const k=o[1]; refundOrders[k]={amount:Math.round(((refundOrders[k]?.amount)||0)*100+v*100)/100,date:iso||refundOrders[k]?.date||null}; } }
     else if(/^fee$|^frais$|marketing/i.test(type)){ const k=feeLabel(type,title); det[k]=(det[k]||0)-fee; fees-=fee; }
     // Paiement / Deposit / Tax : mouvements de trésorerie ou taxes reversées par Etsy, hors résultat
   }
   const period=Object.entries(periods).sort((a,b)=>b[1]-a[1])[0]; if(!period) return null;
   const round=v=>Math.round(v*100)/100;
   const detail=Object.entries(det).map(([k,v])=>[k,round(v)]).filter(([,v])=>v);
-  return {csv:true,name:file.name,period:period[0],y:+period[0].slice(0,4),m:+period[0].slice(5,7)-1,sales:round(sales),refunds:round(refunds),count:orders.size||count,fees:round(fees),detail,orders:[...orders]};
+  return {csv:true,name:file.name,period:period[0],y:+period[0].slice(0,4),m:+period[0].slice(5,7)-1,sales:round(sales),refunds:round(refunds),count:orders.size||count,fees:round(fees),detail,orders:[...orders],refundOrders};
 }
 const isCSV=f=>/\.csv$/i.test(f.name)||/csv/i.test(f.type);
 async function openFileFlow(file){
@@ -1657,12 +1691,13 @@ async function saveEntry(){
   }catch(err){ console.error(err); $("#mHint").textContent="Erreur d'enregistrement : "+err.message; return; }
   const i=state.entries.findIndex(x=>x.id===e.id); if(i>=0) state.entries[i]=e; else state.entries.push(e);
   if(!old && e.type==="vente" && !e.refund && $("#fCancel").checked){
-    const r={id:uid(),created:Date.now()+1,type:"vente",refund:true,linkedTo:e.id,country:e.country,countryName:e.countryName,amount:e.amount,date:e.date,cat:e.cat,party:e.party,tva:e.tva,autoliq:false,vatPaid:0,label:`Annulation – ${e.label||e.cat}`,note:"Commande annulée, remboursée en totalité",fileId:null,fileName:null};
+    const r={id:uid(),created:Date.now()+1,type:"vente",refund:true,linkedTo:e.id,country:e.country,countryName:e.countryName,amount:e.amount,date:(()=>{ const v=$("#fCancelDate").value; const er=orderOf(e)&&etsyRefundOf(orderOf(e)); if(er&&er.date&&(!v||v===e.date)) return er.date<e.date?e.date:er.date; return (v&&v>=e.date)?v:e.date; })(),cat:e.cat,party:e.party,tva:e.tva,autoliq:false,vatPaid:0,label:`Annulation – ${e.label||e.cat}`,note:"Commande annulée, remboursée en totalité",fileId:null,fileName:null};
     await store.put("entries",r); state.entries.push(r); }
   if(old && e.type==="vente" && !e.refund && (old.country!==e.country||old.countryName!==e.countryName||old.tva!==e.tva)){
     for(const r of state.entries.filter(x=>x.linkedTo===e.id)){ Object.assign(r,{country:e.country,countryName:e.countryName,tva:e.tva}); await store.put("entries",r); } }
   if(old && old.src==="etsy-releve") syncEtsyTotal(e,e.amount);
   await reconcileEtsy(e.date); if(old && old.date!==e.date) await reconcileEtsy(old.date);
+  for(const r of state.entries.filter(x=>x.linkedTo===e.id&&x.date.slice(0,7)!==e.date.slice(0,7))) await reconcileEtsy(r.date);
   await touch();
   // jump to the entry's month so the person sees it
   state.y=+date.slice(0,4); state.m=+date.slice(5,7)-1;
@@ -1778,7 +1813,7 @@ function renderMonthRecap(){
   const Y=state.y, m=state.m, tva=state.settings.regime==="tva"; const d=monthData(Y,m); const s=d.s;
   $("#mrTitle").textContent=`Récap ${MONTHS[m]} ${Y}`;
   $("#mrKpis").innerHTML=`
-    <div class="kpi"><div class="l"><span class="dot" style="background:var(--sale)"></span>Ventes${tva?" HT":""}</div><div class="v num">${fmt(s.sales)}</div></div>
+    <div class="kpi"><div class="l"><span class="dot" style="background:var(--sale)"></span>Ventes${tva?" HT":""}</div><div class="v num">${fmt(s.sales)}</div>${lateTxt(Y,m)?`<div class="d">${lateTxt(Y,m)}</div>`:""}</div>
     <div class="kpi"><div class="l"><span class="dot" style="background:var(--exp)"></span>Dépenses${tva?" HT":""}</div><div class="v num">${fmt(s.exp)}</div></div>
     <div class="kpi"><div class="l">${tva?"TVA à reverser":"Marge"}</div><div class="v num">${tva?fmt(s.tvaDue):(s.margin==null?"—":s.margin.toFixed(0)+" %")}</div>${tva?`<div class="d">collectée ${fmt(s.tvaC)} · récupérable ${fmt(s.tvaD)}${s.autoliq?`<br>autoliquidation Etsy : base ${fmt(s.autoliq)}`:""}</div>`:""}</div>
     <div class="kpi hero"><div class="l">Bénéfice ${MONTHS[m]}</div><div class="v num">${fmt(s.net)}</div><div class="d">marge ${s.margin==null?"—":s.margin.toFixed(0)+" %"}${etsyFeesPending(Y,m)?'<br><span class="pend">⏳ provisoire : frais Etsy pas encore reçus</span>':""}</div></div>`;
@@ -2283,6 +2318,7 @@ function bind(){
   $$("#fCountry button").forEach(b=>b.onclick=()=>{ const z=b.dataset.c; modal.country=z; modal.countryName = (modal.detected&&modal.detected.zone===z) ? modal.detected.name : (z==="UE"?"Autre pays de l'UE":z==="HORS_UE"?"Autre pays hors UE":"France"); syncCountry(); });
   $("#fDate").addEventListener("change",()=>{ if(modal.type==="vente") syncCountry(); });
   $("#fCancel").onchange=syncCancel;
+  $("#fDate").addEventListener("change",()=>{ if($("#fCancel").checked && (!$("#fCancelDate").value || $("#fCancelDate").value<$("#fDate").value)) $("#fCancelDate").value=$("#fDate").value; });
   $("#fAutoliq").onchange=()=>{ if(!$("#fAutoliq").checked) $("#fTva").value=state.settings.tvaDefault; syncAutoliq(); };
   $("#fCat").onchange=async()=>{
     const sel=$("#fCat");
