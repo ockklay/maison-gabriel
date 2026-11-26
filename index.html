@@ -1558,10 +1558,11 @@ function etsyRefundOf(num){ const T=state.settings.etsyTotals||{}; for(const [p,
 function lateRefunds(y,m){
   const period=`${y}-${pad(m+1)}`; const t=(state.settings.etsyTotals||{})[period]; const seen=new Set(); let ht=0; const months=new Set();
   for(const r of state.entries.filter(x=>x.refund&&x.linkedTo&&inMonth(x,y,m))){ const sl=state.entries.find(z=>z.id===r.linkedTo); if(sl&&sl.date.slice(0,7)<period){ ht+=r.amount/(1+(r.tva||0)/100); months.add(sl.date.slice(0,7)); const o=orderOf(sl); if(o) seen.add(o); } }
-  if(t&&t.refundOrders) for(const [k,v] of Object.entries(t.refundOrders)){ if(seen.has(k)) continue; const sm=etsySaleMonth(k); if(sm&&sm<period){ ht+=v.amount/(1+((t.tva??state.settings.tvaDefault)||0)/100); months.add(sm); } }
+  if(t&&t.refundOrders) for(const [k,v] of Object.entries(t.refundOrders)){ if(seen.has(k)) continue; const sm=etsySaleMonthOr(k,period); if(sm&&(sm==="avant"||sm<period)){ ht+=v.amount/(1+((t.tva??state.settings.tvaDefault)||0)/100); months.add(sm); } }
   return ht>0.004?{ht:Math.round(ht*100)/100,months:[...months].sort()}:null;
 }
-const lateTxt=(y,m)=>{ const l=lateRefunds(y,m); return l?`dont <b>−${fmt(l.ht)}</b> de remboursements de commandes de ${l.months.map(p=>MONTHS[+p.slice(5,7)-1]).join(", ")} (annulées ce mois-ci)`:""; };
+const lateTxt=(y,m)=>{ const l=lateRefunds(y,m); if(!l) return ""; const ms=l.months.filter(p=>p!=="avant"); return `dont <b>−${fmt(l.ht)}</b> de remboursements de commandes ${ms.length&&ms.length===l.months.length?"de "+ms.map(p=>MONTHS[+p.slice(5,7)-1]).join(", "):"vendues un mois précédent"} (annulées ce mois-ci)`; };
+function etsySaleMonthOr(num,period){ const sm=etsySaleMonth(num); if(sm) return sm; const t=(state.settings.etsyTotals||{})[period]; if(t&&t.orders&&!t.orders.map(String).includes(String(num))) return "avant"; return null; }
 function etsySaleMonth(num){ const e=state.entries.find(x=>orderOf(x)===String(num)); if(e) return e.date.slice(0,7); const T=state.settings.etsyTotals||{}; for(const [p,t] of Object.entries(T)) if((t.orders||[]).map(String).includes(String(num))) return p; return null; }
 /* Remboursement d'une commande annulée : on le range au mois où Etsy l'a vraiment remboursé (relevé CSV) */
 async function alignRefunds(){
@@ -1587,8 +1588,9 @@ async function reconcileEtsy(date,noAlign){
       let extra="";
       if(refund && t.refundOrders){ const indNums=new Set(state.entries.filter(x=>inMonth(x,y,m)&&x.refund&&x.linkedTo).map(x=>{ const sl=state.entries.find(z=>z.id===x.linkedTo); return sl&&orderOf(sl); }).filter(Boolean));
         const rest=Object.entries(t.refundOrders).filter(([k])=>!indNums.has(k));
-        if(rest.length){ const ms=[...new Set(rest.map(([k])=>etsySaleMonth(k)).filter(p=>p&&p<period))];
-          extra=` – n° ${rest.map(([k])=>k).join(", n° ")}${ms.length?` (vendue${rest.length>1?"s":""} en ${ms.map(p=>MONTHS[+p.slice(5,7)-1]+" "+p.slice(0,4)).join(", ")})`:""}`;
+        if(rest.length){ const all=rest.map(([k])=>etsySaleMonthOr(k,period)); const late=all.map(p=>p&&(p==="avant"||p<period)); const ms=[...new Set(all.filter((p,i)=>late[i]&&p!=="avant"))];
+          const when=ms.length&&!all.some(p=>p==="avant")?`en ${ms.map(p=>MONTHS[+p.slice(5,7)-1]+" "+p.slice(0,4)).join(", ")}`:"un mois précédent";
+          extra = late.every(Boolean) ? ` – n° ${rest.map(([k])=>k).join(", n° ")} (vendue${rest.length>1?"s":""} ${when})` : ` – ${rest.map(([k],i)=>`n° ${k}${late[i]?` (vendue ${when})`:""}`).join(", ")}`;
           e.note=rest.map(([k,v])=>`Commande n° ${k} : ${fmt(v.amount)} remboursés${v.date?" le "+v.date.split("-").reverse().join("/"):""}`).join("\n"); } }
       e.amount=target; e.label = refund ? (hasInd?`Remboursements Etsy sans facture – ${label}${extra}`:`Remboursements Etsy ${label}${extra}`) : (hasInd?`Ventes Etsy sans facture – ${label}`:`Ventes Etsy ${label}${t.count?` (${t.count} vente${t.count>1?"s":""})`:""}`);
       await store.put("entries",e); const i=state.entries.findIndex(x=>x.id===e.id); if(i>=0) state.entries[i]=e; else state.entries.push(e);
